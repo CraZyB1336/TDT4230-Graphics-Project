@@ -70,7 +70,7 @@ glm::mat4 identityMat = {
 
 // Uniforms 3D
 glm::mat4 VP;
-glm::vec3 cameraPosition;
+glm::vec3 cameraPosition = {0.0, 0.0, 30.0};
 
 // Uniforms 2D
 glm::mat4 OrthoVP;
@@ -78,6 +78,7 @@ glm::mat4 OrthoVP;
 
 // 3D
 SceneNode* rootNode;
+SceneNode* sphereNode;
 
 // 2D
 SceneNode* root2DNode;
@@ -104,6 +105,15 @@ void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
     rootNode = createSceneNode();
     root2DNode = createSceneNode();
 
+    Mesh sphereMesh = generateSphere(10.0, 56, 56);
+    std::vector<unsigned int> sphereVAOIBO = generateBuffer(sphereMesh);
+    sphereNode = createSceneNode();
+    sphereNode->vertexArrayObjectID = sphereVAOIBO[0];
+    sphereNode->indexArrayObjectID  = sphereVAOIBO[1];
+    sphereNode->VAOIndexCount       = sphereMesh.indices.size();
+
+    rootNode->children.push_back(sphereNode);
+
     getTimeDeltaSeconds();
 }
 
@@ -128,8 +138,9 @@ void updateFrame(GLFWwindow* window) {
     }
 
     glm::mat4 projection = glm::perspective(glm::radians(80.0f), float(windowWidth) / float(windowHeight), 0.1f, 350.f);
+    glm::mat4 cameraTransform = glm::translate(-cameraPosition);
 
-    VP = projection;
+    VP = projection * cameraTransform;
 
     updateNodeTransformations(rootNode, identityMat);
     updateNodeTransformations(root2DNode, identityMat);

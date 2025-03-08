@@ -34,9 +34,5 @@ float lc = 0.003;
 
 void main()
 {
-    if (gl_FragCoord.x < 10.0) {
-        color = vec4(0.2, 0.4, 0.5, 1.0);
-    } else {
-        color = vec4(0.6, 0.2, 0.5, 1.0);
-    }
+    color = vec4(0.6, 0.2, 0.5, 1.0);
 }
