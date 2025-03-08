@@ -59,7 +59,7 @@ struct LightSource {
     float intensity;
 };
 
-LightSource lightSources[3];
+LightSource lightSources[1];
 
 glm::mat4 identityMat = {
     {1.0, 0.0, 0.0, 0.0},
@@ -83,6 +83,23 @@ SceneNode* sphereNode;
 // 2D
 SceneNode* root2DNode;
 
+void init3DNodes() {
+    rootNode = createSceneNode();
+
+    Mesh sphereMesh = generateSphere(10.0, 56, 56);
+    std::vector<unsigned int> sphereVAOIBO = generateBuffer(sphereMesh);
+    sphereNode = createSceneNode();
+    sphereNode->vertexArrayObjectID = sphereVAOIBO[0];
+    sphereNode->indexArrayObjectID  = sphereVAOIBO[1];
+    sphereNode->VAOIndexCount       = sphereMesh.indices.size();
+
+    rootNode->children.push_back(sphereNode);
+}
+
+void init2DNodes() {
+    root2DNode = createSceneNode();
+}
+
 void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
 
     options = gameOptions;
@@ -102,17 +119,8 @@ void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
     
     shader->activate();
 
-    rootNode = createSceneNode();
-    root2DNode = createSceneNode();
-
-    Mesh sphereMesh = generateSphere(10.0, 56, 56);
-    std::vector<unsigned int> sphereVAOIBO = generateBuffer(sphereMesh);
-    sphereNode = createSceneNode();
-    sphereNode->vertexArrayObjectID = sphereVAOIBO[0];
-    sphereNode->indexArrayObjectID  = sphereVAOIBO[1];
-    sphereNode->VAOIndexCount       = sphereMesh.indices.size();
-
-    rootNode->children.push_back(sphereNode);
+    init3DNodes();
+    init2DNodes();
 
     getTimeDeltaSeconds();
 }
