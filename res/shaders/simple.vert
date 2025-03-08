@@ -3,15 +3,40 @@
 in layout(location = 0) vec3 position;
 in layout(location = 1) vec3 normal_in;
 in layout(location = 2) vec2 textureCoordinates_in;
+in layout(location = 3) vec3 tangent;
+in layout(location = 4) vec3 bitangent;
 
-uniform layout(location = 3) mat4 MVP;
+// Model transformation matrix
+uniform mat4 M;
+uniform mat4 VP;
+// Normal matrix
+uniform mat3 NM;
 
 out layout(location = 0) vec3 normal_out;
 out layout(location = 1) vec2 textureCoordinates_out;
+out layout(location = 2) vec3 position_out;
+out layout(location = 3) mat3 TBN;
 
 void main()
 {
-    normal_out = normal_in;
+    vec3 normalM = normalize(NM * normal_in);
+    vec3 tangentM = normalize(NM * tangent);
+    vec3 bitangentM = normalize(NM * bitangent);
+
+    // Have to invert the bitangent.
+    TBN = mat3(
+        normalize(tangentM), 
+        normalize(bitangentM), 
+        normalize(normalM)
+    );
+
+    normal_out = normalM;
     textureCoordinates_out = textureCoordinates_in;
-    gl_Position = MVP * vec4(position, 1.0f);
+
+
+
+    vec4 MP = M * vec4(position, 1.0);
+    position_out = MP.xyz;
+
+    gl_Position = VP * M * vec4(position, 1.0f);
 }

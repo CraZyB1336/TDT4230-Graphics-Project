@@ -2,4 +2,4 @@
 
 #include "mesh.h"
 
-unsigned int generateBuffer(Mesh &mesh);
+std::vector<unsigned int> generateBuffer(Mesh &mesh);
