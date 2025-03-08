@@ -38,5 +38,5 @@ void main()
     vec4 MP = M * vec4(position, 1.0);
     position_out = MP.xyz;
 
-    gl_Position = VP * M * vec4(position, 1.0f);
+    gl_Position = VP * M * vec4(position, 1.0);
 }

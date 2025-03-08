@@ -83,10 +83,22 @@ SceneNode* sphereNode;
 // 2D
 SceneNode* root2DNode;
 
+void initLights() {
+    SceneNode* light1 = createSceneNode();
+
+    light1->lightSourceID       = 0;
+    light1->nodeType            = POINT_LIGHT;
+    light1->position            = {-20.0, 6.0, 30.0};
+    lightSources[0].color       = glm::vec3(1, 0.59, 0.3);
+    lightSources[0].intensity   = 1.0;
+
+    rootNode->children.push_back(light1);
+}
+
 void init3DNodes() {
     rootNode = createSceneNode();
 
-    Mesh sphereMesh = generateSphere(10.0, 56, 56);
+    Mesh sphereMesh = generateSphere(10.0, 48, 48);
     std::vector<unsigned int> sphereVAOIBO = generateBuffer(sphereMesh);
     sphereNode = createSceneNode();
     sphereNode->vertexArrayObjectID = sphereVAOIBO[0];
@@ -94,6 +106,8 @@ void init3DNodes() {
     sphereNode->VAOIndexCount       = sphereMesh.indices.size();
 
     rootNode->children.push_back(sphereNode);
+
+    initLights();
 }
 
 void init2DNodes() {
@@ -168,7 +182,13 @@ void updateNodeTransformations(SceneNode* node, glm::mat4 transformationThusFar)
 
     switch(node->nodeType) {
         case GEOMETRY: break;
-        case POINT_LIGHT: break;
+        case POINT_LIGHT: {
+            glm::vec4 lightPosition = node->currentTransformationMatrix * glm::vec4(0, 0, 0, 1);
+            if (node->lightSourceID != -1) {
+                lightSources[node->lightSourceID].position = glm::vec3(lightPosition.x, lightPosition.y, lightPosition.z);
+            }
+            break;
+        }
         case SPOT_LIGHT: break;
         default: break;
     }
@@ -199,7 +219,20 @@ void renderNode(SceneNode* node) {
                 glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
             }
             break;
-        case POINT_LIGHT: break;
+        case POINT_LIGHT: {
+            int i = node->lightSourceID;
+            if (i != -1) {
+                GLint lightPosLoc = shader->getUniformFromName("lights[" + std::to_string(i) + "].position");
+                glUniform3f(lightPosLoc, lightSources[i].position.x, lightSources[i].position.y, lightSources[i].position.z);
+
+                GLint lightColLoc = shader->getUniformFromName("lights[" + std::to_string(i) + "].color");
+                glUniform3f(lightColLoc, lightSources[i].color.x, lightSources[i].color.y, lightSources[i].color.z);
+
+                GLint lightIntLoc = shader->getUniformFromName("lights[" + std::to_string(i) + "].intensity");
+                glUniform1f(lightIntLoc, lightSources[i].intensity);
+            }
+            break;
+        }
         case SPOT_LIGHT: break;
         case GEOMETRY_TEXTURE: break;
         default: break;

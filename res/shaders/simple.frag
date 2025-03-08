@@ -11,7 +11,7 @@ struct LightSource {
     float intensity;
 };
 
-// uniform LightSource[3] lights;
+uniform LightSource[1] lights;
 uniform vec3 cameraPosition;
 
 vec3 hardColor = vec3(0.29);
@@ -32,7 +32,14 @@ float lc = 0.003;
 //     return from - onto*dot(from, onto)/dot(onto, onto);
 // }
 
+void calculateLights(vec3 norm, vec3 roughness) {
+    
+}
+
 void main()
 {
-    color = vec4(0.6, 0.2, 0.5, 1.0);
+    // calculateLights(normal, vec3(1.0));
+
+    // vec3 lightColor = vec3(0.2) + diffuse + specular + dither(textureCoordinates);
+    color = vec4(normal, 1.0);
 }
