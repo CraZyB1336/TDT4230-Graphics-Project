@@ -79,7 +79,7 @@ glm::mat4 OrthoVP;
 
 // 3D
 SceneNode* rootNode;
-SceneNode* sphereNode;
+SceneNode* squareNode;
 
 // 2D
 SceneNode* root2DNode;
@@ -99,15 +99,27 @@ void initLights() {
 void init3DNodes() {
     rootNode = createSceneNode();
 
-    // Mesh sphereMesh = cube({20.0, 20.0, 20.0}, {1.0, 1.0}, true, false, {1.0, 1.0, 1.0});
-    Mesh sphereMesh = generateSphere(1.0, 40, 40);
-    std::vector<unsigned int> sphereVAOIBO = generateBuffer(sphereMesh);
-    sphereNode = createSceneNode();
-    sphereNode->vertexArrayObjectID = sphereVAOIBO[0];
-    sphereNode->indexArrayObjectID  = sphereVAOIBO[1];
-    sphereNode->VAOIndexCount       = sphereMesh.indices.size();
+    // Generate Textures
+    PNGImage brickTexture = loadPNGFile("../res/textures/Brick03_col.png");
+    PNGImage brickTextureNRM = loadPNGFile("../res/textures/Brick03_nrm.png");
+    PNGImage brickTextureRGH = loadPNGFile("../res/textures/Brick03_rgh.png");
 
-    rootNode->children.push_back(sphereNode);
+    int brickTextureID = getTextureID(brickTexture);
+    int brickTextureNRMID = getTextureID(brickTextureNRM);
+    int brickTextureRGHID = getTextureID(brickTextureRGH);
+
+    Mesh squareMesh = cube({20.0, 20.0, 20.0}, {10.0, 10.0}, true, false, {1.0, 1.0, 1.0});
+    std::vector<unsigned int> squareVAOIBO = generateBuffer(squareMesh);
+    squareNode = createSceneNode();
+    squareNode->nodeType            = GEOMETRY_TEXTURE;
+    squareNode->vertexArrayObjectID = squareVAOIBO[0];
+    squareNode->indexArrayObjectID  = squareVAOIBO[1];
+    squareNode->VAOIndexCount       = squareMesh.indices.size();
+    squareNode->textureID           = brickTextureID;
+    squareNode->normalTextureID     = brickTextureNRMID;
+    squareNode->roughnessTextureID  = brickTextureRGHID;
+
+    rootNode->children.push_back(squareNode);
 
     initLights();
 }
@@ -219,6 +231,8 @@ void renderNode(SceneNode* node) {
     switch(node->nodeType) {
         case GEOMETRY:
             if(node->vertexArrayObjectID != -1) {
+                GLint hasTextureLocation = shader->getUniformFromName("hasTexture");
+                glUniform1i(hasTextureLocation, 0);
                 glBindVertexArray(node->vertexArrayObjectID);
                 glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
             }
@@ -238,7 +252,18 @@ void renderNode(SceneNode* node) {
             break;
         }
         case SPOT_LIGHT: break;
-        case GEOMETRY_TEXTURE: break;
+        case GEOMETRY_TEXTURE: {
+            GLint hasTextureLocation = shader->getUniformFromName("hasTexture");
+            glUniform1i(hasTextureLocation, 1);
+
+            glBindTextureUnit(0, node->textureID);
+            glBindTextureUnit(1, node->normalTextureID);
+            glBindTextureUnit(2, node->roughnessTextureID);
+
+            glBindVertexArray(node->vertexArrayObjectID);
+            glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
+            break;
+        }
         default: break;
     }
 
