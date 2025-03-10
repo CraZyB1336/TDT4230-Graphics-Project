@@ -33,13 +33,24 @@ float lc = 0.003;
 // }
 
 void calculateLights(vec3 norm, vec3 roughness) {
+    vec3 toCam = normalize(cameraPosition - position);
     
+    for (int i = 0; i < 1; i++) {
+        vec3 toLight = lights[i].position - position;
+        vec3 nToLight = normalize(toLight);
+
+        float lightDistance = length(toLight);
+        
+        // Diffuse
+        float diffuseIntensity = max(dot(nToLight, norm), 0.0);
+        diffuse += diffuseIntensity * lights[i].intensity * hardColor * lights[i].color;
+    }
 }
 
 void main()
 {
-    // calculateLights(normal, vec3(1.0));
+    calculateLights(normalize(normal), vec3(1.0));
 
-    // vec3 lightColor = vec3(0.2) + diffuse + specular + dither(textureCoordinates);
-    color = vec4(normal, 1.0);
+    vec3 lightColor = vec3(0.2) + diffuse + specular + dither(textureCoordinates);
+    color = vec4(textureCoordinates, 0.0, 1.0);
 }

@@ -71,6 +71,7 @@ glm::mat4 identityMat = {
 // Uniforms 3D
 glm::mat4 VP;
 glm::vec3 cameraPosition = {0.0, 0.0, 30.0};
+float cameraAngle = 35.0f;
 
 // Uniforms 2D
 glm::mat4 OrthoVP;
@@ -88,9 +89,9 @@ void initLights() {
 
     light1->lightSourceID       = 0;
     light1->nodeType            = POINT_LIGHT;
-    light1->position            = {-20.0, 6.0, 30.0};
+    light1->position            = {0.0, 0.0, 60.0};
     lightSources[0].color       = glm::vec3(1, 0.59, 0.3);
-    lightSources[0].intensity   = 1.0;
+    lightSources[0].intensity   = 2.0;
 
     rootNode->children.push_back(light1);
 }
@@ -98,7 +99,8 @@ void initLights() {
 void init3DNodes() {
     rootNode = createSceneNode();
 
-    Mesh sphereMesh = generateSphere(10.0, 48, 48);
+    // Mesh sphereMesh = cube({20.0, 20.0, 20.0}, {1.0, 1.0}, true, false, {1.0, 1.0, 1.0});
+    Mesh sphereMesh = generateSphere(1.0, 40, 40);
     std::vector<unsigned int> sphereVAOIBO = generateBuffer(sphereMesh);
     sphereNode = createSceneNode();
     sphereNode->vertexArrayObjectID = sphereVAOIBO[0];
@@ -160,7 +162,9 @@ void updateFrame(GLFWwindow* window) {
     }
 
     glm::mat4 projection = glm::perspective(glm::radians(80.0f), float(windowWidth) / float(windowHeight), 0.1f, 350.f);
-    glm::mat4 cameraTransform = glm::translate(-cameraPosition);
+    // Rotation Order: Y, X, Z
+    glm::mat4 cameraTransform = glm::translate(-cameraPosition) * glm::rotate(glm::radians(cameraAngle), glm::vec3(0.0, 1.0, 0.0));
+    cameraAngle += 10 * timeDelta;
 
     VP = projection * cameraTransform;
 
