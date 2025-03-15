@@ -90,7 +90,7 @@ Mesh cube(glm::vec3 scale, glm::vec2 textureScale, bool tilingTextures, bool inv
     return m;
 }
 
-Mesh generateSphere(float sphereRadius, int slices, int layers) {
+Mesh generateSphere(float sphereRadius, int slices, int layers, glm::vec2 textureScale) {
     const unsigned int triangleCount = slices * layers * 2;
 
     std::vector<glm::vec3> vertices;
@@ -188,9 +188,10 @@ Mesh generateSphere(float sphereRadius, int slices, int layers) {
 
             for (int j = 0; j < 6; j++) {
                 glm::vec3 vertex = vertices.at(i+j);
+
                 uvs.emplace_back(
-                    0.5 + (glm::atan(vertex.z, vertex.y)/(2.0*M_PI)),
-                    0.5 - (glm::asin(vertex.y)/M_PI)
+                    (0.5 + (glm::atan(vertex.x, vertex.z)/(2.0*M_PI))) * textureScale.x,
+                    (0.5 - (glm::asin(vertex.y / sphereRadius)/M_PI)) * textureScale.y
                 );
             }
 

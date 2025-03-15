@@ -108,7 +108,8 @@ void init3DNodes() {
     int brickTextureNRMID = getTextureID(brickTextureNRM);
     int brickTextureRGHID = getTextureID(brickTextureRGH);
 
-    Mesh squareMesh = cube({20.0, 20.0, 20.0}, {10.0, 10.0}, true, false, {1.0, 1.0, 1.0});
+    Mesh squareMesh = cube({20.0, 20.0, 20.0}, {15.0, 15.0}, true, false, {1.0, 1.0, 1.0});
+    // Mesh squareMesh = generateSphere(15.0, 40, 40, {2.0, 2.0});
     std::vector<unsigned int> squareVAOIBO = generateBuffer(squareMesh);
     squareNode = createSceneNode();
     squareNode->nodeType            = GEOMETRY_TEXTURE;
@@ -175,10 +176,11 @@ void updateFrame(GLFWwindow* window) {
 
     glm::mat4 projection = glm::perspective(glm::radians(80.0f), float(windowWidth) / float(windowHeight), 0.1f, 350.f);
     // Rotation Order: Y, X, Z
-    glm::mat4 cameraTransform = glm::translate(-cameraPosition) * glm::rotate(glm::radians(cameraAngle), glm::vec3(0.0, 1.0, 0.0));
-    cameraAngle += 10 * timeDelta;
+    glm::mat4 cameraTransform = glm::translate(-cameraPosition);
 
     VP = projection * cameraTransform;
+
+    squareNode->rotation.y = squareNode->rotation.y >= 360.0 || squareNode->rotation.y <= -360.0 ? 0.0 : squareNode->rotation.y + timeDelta * 0.2;
 
     updateNodeTransformations(rootNode, identityMat);
     updateNodeTransformations(root2DNode, identityMat);
