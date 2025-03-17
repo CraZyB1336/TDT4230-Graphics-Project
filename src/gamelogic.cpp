@@ -22,6 +22,7 @@
 #include "utilities/glfont.h"
 #include "textureHandler.hpp"
 #include "renderStages.hpp"
+#include "shaderStructs.hpp"
 
 enum KeyFrameAction {
     BOTTOM, TOP
@@ -53,12 +54,6 @@ double lastMouseY = windowHeight / 2;
 void mouseCallback(GLFWwindow* window, double x, double y) {
     // Stuff to do when mouse is called.
 }
-
-struct LightSource {
-    glm::vec3 position;
-    glm::vec3 color;
-    float intensity;
-};
 
 LightSource lightSources[1];
 
@@ -226,86 +221,6 @@ void updateNodeTransformations(SceneNode* node, glm::mat4 transformationThusFar)
     }
 }
 
-void passInNormalMatrix(SceneNode* node) {
-    GLint normalMatLoc = shader->getUniformFromName("NM");
-
-    glm::mat3 NM3 = glm::mat3(node->currentTransformationMatrix);
-    glm::mat3 NM = glm::transpose(glm::inverse(NM3));
-    glUniformMatrix3fv(normalMatLoc, 1, GL_FALSE, glm::value_ptr(NM));
-}
-
-void renderNode(SceneNode* node) {
-    GLint MLocation = shader->getUniformFromName("M");
-    glUniformMatrix4fv(MLocation, 1, GL_FALSE, glm::value_ptr(node->currentTransformationMatrix));
-
-    passInNormalMatrix(node);
-
-    switch(node->nodeType) {
-        case GEOMETRY:
-            if(node->vertexArrayObjectID != -1) {
-                GLint hasTextureLocation = shader->getUniformFromName("hasTexture");
-                glUniform1i(hasTextureLocation, 0);
-                glBindVertexArray(node->vertexArrayObjectID);
-                glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
-            }
-            break;
-        case POINT_LIGHT: {
-            int i = node->lightSourceID;
-            if (i != -1) {
-                GLint lightPosLoc = shader->getUniformFromName("lights[" + std::to_string(i) + "].position");
-                glUniform3f(lightPosLoc, lightSources[i].position.x, lightSources[i].position.y, lightSources[i].position.z);
-
-                GLint lightColLoc = shader->getUniformFromName("lights[" + std::to_string(i) + "].color");
-                glUniform3f(lightColLoc, lightSources[i].color.x, lightSources[i].color.y, lightSources[i].color.z);
-
-                GLint lightIntLoc = shader->getUniformFromName("lights[" + std::to_string(i) + "].intensity");
-                glUniform1f(lightIntLoc, lightSources[i].intensity);
-            }
-            break;
-        }
-        case SPOT_LIGHT: break;
-        case GEOMETRY_TEXTURE: {
-            GLint hasTextureLocation = shader->getUniformFromName("hasTexture");
-            glUniform1i(hasTextureLocation, 1);
-
-            glBindTextureUnit(0, node->textureID);
-            glBindTextureUnit(1, node->normalTextureID);
-            glBindTextureUnit(2, node->roughnessTextureID);
-
-            glBindVertexArray(node->vertexArrayObjectID);
-            glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
-            break;
-        }
-        default: break;
-    }
-
-    for(SceneNode* child : node->children) {
-        renderNode(child);
-    }
-}
-
-void render2DNode(SceneNode* node) {
-    GLint MLocation = shader->getUniformFromName("M");
-    glUniformMatrix4fv(MLocation, 1, GL_FALSE, glm::value_ptr(node->currentTransformationMatrix));
-
-    switch(node->nodeType) {
-        case GEOMETRY_2D: {
-            if (node->textureID != -1) {
-                glBindTextureUnit(0, node->textureID);
-            }
-
-            glBindVertexArray(node->vertexArrayObjectID);
-            glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
-            break;
-        }
-        default: break;
-    }
-
-    for(SceneNode* child : node->children) {
-        render2DNode(child);
-    }
-}
-
 void renderFrame(GLFWwindow* window) {
     int windowWidth, windowHeight;
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
@@ -314,15 +229,7 @@ void renderFrame(GLFWwindow* window) {
     // Subsurface stage
 
 
-
-    glEnable(GL_DEPTH_TEST);
-    shader->activate();
-    main3DStage(*shader, VP, cameraPosition);
-    renderNode(rootNode);
-
-
-    glDisable(GL_DEPTH_TEST);
-    shader_2D->activate();
-    main2DStage(*shader_2D, OrthoVP);
-    render2DNode(root2DNode);
+    main3DStage(*shader, rootNode, lightSources, VP, cameraPosition);
+    
+    main2DStage(*shader_2D, root2DNode, OrthoVP);
 }
