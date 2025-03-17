@@ -17,7 +17,7 @@ unsigned int getTextureID(PNGImage &image) {
     return textureID;
 }
 
-unsigned int getEmptyTextureID(int width, int height) {
+unsigned int getEmptyFrameBufferTextureID(int width, int height) {
     unsigned int textureID;
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_2D, textureID);

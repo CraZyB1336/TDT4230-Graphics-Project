@@ -76,6 +76,28 @@ void render2DNode(SceneNode* node, Gloom::Shader &shader) {
     }
 }
 
+void diffuseBufferStage(Gloom::Shader &shader, SceneNode* rootNode, LightSource* lightSources, glm::mat4 &VP, glm::vec3 &cameraPosition, int &diffuseTextureID) {
+    glBindFramebuffer(GL_FRAMEBUFFER, diffuseTextureID);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    shader.activate();
+
+    GLint VPLocation = shader.getUniformFromName("VP");
+    glUniformMatrix4fv(VPLocation, 1, GL_FALSE, glm::value_ptr(VP));
+
+    GLint CamPositionLocation = shader.getUniformFromName("cameraPosition");
+    glUniform3f(CamPositionLocation, cameraPosition.x, cameraPosition.y, cameraPosition.z);
+
+    // Render
+    renderNode(rootNode, shader, lightSources);
+}
+
+void subsurfaceProcStage(Gloom::Shader &shader, int &diffuseSubTextureID, int &subsurfacedTextureID) {
+    shader.activate();
+
+    glBindImageTexture(0, diffuseSubTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGB);
+    glBindImageTexture(1, subsurfacedTextureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGB);
+}
+
 void main3DStage(Gloom::Shader &shader, SceneNode* rootNode, LightSource* lightSources, glm::mat4 &VP, glm::vec3 &cameraPosition) {
     // Activate Depth test (?)
     glEnable(GL_DEPTH_TEST);

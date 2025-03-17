@@ -34,6 +34,8 @@ enum KeyFrameAction {
 sf::SoundBuffer* buffer;
 Gloom::Shader* shader;
 Gloom::Shader* shader_2D;
+Gloom::Shader* diffusePassShader;
+Gloom::Shader* subsurfaceProcShader;
 sf::Sound* sound;
 
 CommandLineOptions options;
@@ -79,13 +81,15 @@ SceneNode* squareNode;
 
 // 3D Rendering Pipeline
 int diffuseSubTextureID;
+int subsurfacedTextureID;
 
 // 2D
 SceneNode* root2DNode;
 
 void initSubsurfacePipeline() {
     // Get empty texture ID for the diffuse subsurface texture pass.
-    diffuseSubTextureID = getEmptyTextureID(windowWidth, windowHeight);
+    diffuseSubTextureID     = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
+    subsurfacedTextureID    = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
 }
 
 void initLights() {
@@ -143,6 +147,14 @@ void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
     int windowWidth, windowHeight;
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
     glViewport(0, 0, windowWidth, windowHeight);
+
+    // Shaders
+    diffusePassShader = new Gloom::Shader();
+    diffusePassShader->makeBasicShader("../res/shaders/simple.vert", "../res/shader/diffusePass.frag");
+
+    subsurfaceProcShader = new Gloom::Shader();
+    subsurfaceProcShader->attach("../res/shaders/subsurfaceProc.comp");
+    subsurfaceProcShader->link();
 
     shader = new Gloom::Shader();
     shader->makeBasicShader("../res/shaders/simple.vert", "../res/shaders/simple.frag");
@@ -226,8 +238,9 @@ void renderFrame(GLFWwindow* window) {
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
     glViewport(0, 0, windowWidth, windowHeight);
 
-    // Subsurface stage
-
+    diffuseBufferStage(*diffusePassShader, rootNode, lightSources, VP, cameraPosition, diffuseSubTextureID);
+    
+    subsurfaceProcStage(*subsurfaceProcShader, diffuseSubTextureID, subsurfacedTextureID);
 
     main3DStage(*shader, rootNode, lightSources, VP, cameraPosition);
     

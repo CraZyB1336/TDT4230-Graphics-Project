@@ -5,5 +5,7 @@
 #include "sceneGraph.hpp"
 #include "shaderStructs.hpp"
 
+void diffuseBufferStage(Gloom::Shader &shader, SceneNode* rootNode, LightSource* lightSources, glm::mat4 &VP, glm::vec3 &cameraPosition, int &diffuseTextureID);
+void subsurfaceProcStage(Gloom::Shader &shader, int &diffuseSubTextureID, int &subsurfacedTextureID);
 void main3DStage(Gloom::Shader &shader, SceneNode* rootNode, LightSource* lightSources, glm::mat4 &VP, glm::vec3 &cameraPosition);
 void main2DStage(Gloom::Shader &shader, SceneNode* rootNode, glm::mat4 &OrthoVP);
