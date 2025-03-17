@@ -21,6 +21,7 @@
 #include "utilities/imageLoader.hpp"
 #include "utilities/glfont.h"
 #include "textureHandler.hpp"
+#include "renderStages.hpp"
 
 enum KeyFrameAction {
     BOTTOM, TOP
@@ -305,37 +306,23 @@ void render2DNode(SceneNode* node) {
     }
 }
 
-void setup3Duniforms() {
-    // Pass the VP to the shader
-    GLint VPLocation = shader->getUniformFromName("VP");
-    glUniformMatrix4fv(VPLocation, 1, GL_FALSE, glm::value_ptr(VP));
-
-    GLint CamPositionLocation = shader->getUniformFromName("cameraPosition");
-    glUniform3f(CamPositionLocation, cameraPosition.x, cameraPosition.y, cameraPosition.z);
-}
-
-void setup2Duniforms() {
-    GLint OrthoVPLocation = shader_2D->getUniformFromName("OrthoVP");
-    glUniformMatrix4fv(OrthoVPLocation, 1, GL_FALSE, glm::value_ptr(OrthoVP));
-}
-
 void renderFrame(GLFWwindow* window) {
     int windowWidth, windowHeight;
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
     glViewport(0, 0, windowWidth, windowHeight);
 
     // Subsurface stage
-    
+
 
 
     glEnable(GL_DEPTH_TEST);
     shader->activate();
-    setup3Duniforms();
+    main3DStage(*shader, VP, cameraPosition);
     renderNode(rootNode);
 
 
     glDisable(GL_DEPTH_TEST);
     shader_2D->activate();
-    setup2Duniforms();
+    main2DStage(*shader_2D, OrthoVP);
     render2DNode(root2DNode);
 }
