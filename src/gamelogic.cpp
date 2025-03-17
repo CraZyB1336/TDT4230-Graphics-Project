@@ -81,15 +81,23 @@ glm::mat4 OrthoVP;
 SceneNode* rootNode;
 SceneNode* squareNode;
 
+// 3D Rendering Pipeline
+int diffuseSubTextureID;
+
 // 2D
 SceneNode* root2DNode;
+
+void initSubsurfacePipeline() {
+    // Get empty texture ID for the diffuse subsurface texture pass.
+    diffuseSubTextureID = getEmptyTextureID(windowWidth, windowHeight);
+}
 
 void initLights() {
     SceneNode* light1 = createSceneNode();
 
     light1->lightSourceID       = 0;
     light1->nodeType            = POINT_LIGHT;
-    light1->position            = {0.0, 0.0, 60.0};
+    light1->position            = {-70.0, 70.0, 40.0};
     lightSources[0].color       = glm::vec3(1, 0.59, 0.3);
     lightSources[0].intensity   = 2.0;
 
@@ -100,25 +108,25 @@ void init3DNodes() {
     rootNode = createSceneNode();
 
     // Generate Textures
-    PNGImage brickTexture = loadPNGFile("../res/textures/Brick03_col.png");
-    PNGImage brickTextureNRM = loadPNGFile("../res/textures/Brick03_nrm.png");
-    PNGImage brickTextureRGH = loadPNGFile("../res/textures/Brick03_rgh.png");
+    // PNGImage brickTexture = loadPNGFile("../res/textures/Brick03_col.png");
+    // PNGImage brickTextureNRM = loadPNGFile("../res/textures/Brick03_nrm.png");
+    // PNGImage brickTextureRGH = loadPNGFile("../res/textures/Brick03_rgh.png");
 
-    int brickTextureID = getTextureID(brickTexture);
-    int brickTextureNRMID = getTextureID(brickTextureNRM);
-    int brickTextureRGHID = getTextureID(brickTextureRGH);
+    // int brickTextureID = getTextureID(brickTexture);
+    // int brickTextureNRMID = getTextureID(brickTextureNRM);
+    // int brickTextureRGHID = getTextureID(brickTextureRGH);
 
-    Mesh squareMesh = cube({20.0, 20.0, 20.0}, {15.0, 15.0}, true, false, {1.0, 1.0, 1.0});
-    // Mesh squareMesh = generateSphere(15.0, 40, 40, {2.0, 2.0});
+    // Mesh squareMesh = cube({20.0, 20.0, 20.0}, {15.0, 15.0}, true, false, {1.0, 1.0, 1.0});
+    Mesh squareMesh = generateSphere(15.0, 40, 40, {2.0, 2.0});
     std::vector<unsigned int> squareVAOIBO = generateBuffer(squareMesh);
     squareNode = createSceneNode();
-    squareNode->nodeType            = GEOMETRY_TEXTURE;
+    squareNode->nodeType            = GEOMETRY;
     squareNode->vertexArrayObjectID = squareVAOIBO[0];
     squareNode->indexArrayObjectID  = squareVAOIBO[1];
     squareNode->VAOIndexCount       = squareMesh.indices.size();
-    squareNode->textureID           = brickTextureID;
-    squareNode->normalTextureID     = brickTextureNRMID;
-    squareNode->roughnessTextureID  = brickTextureRGHID;
+    // squareNode->textureID           = brickTextureID;
+    // squareNode->normalTextureID     = brickTextureNRMID;
+    // squareNode->roughnessTextureID  = brickTextureRGHID;
 
     rootNode->children.push_back(squareNode);
 
@@ -148,6 +156,7 @@ void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
     
     shader->activate();
 
+    initSubsurfacePipeline();
     init3DNodes();
     init2DNodes();
 
@@ -314,6 +323,10 @@ void renderFrame(GLFWwindow* window) {
     int windowWidth, windowHeight;
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
     glViewport(0, 0, windowWidth, windowHeight);
+
+    // Subsurface stage
+    
+
 
     glEnable(GL_DEPTH_TEST);
     shader->activate();

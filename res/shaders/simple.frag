@@ -19,7 +19,7 @@ uniform LightSource[1] lights;
 uniform vec3 cameraPosition;
 uniform bool hasTexture;
 
-vec3 hardColor = vec3(0.29);
+vec3 hardColor = vec3(0.06);
 vec3 diffuse = vec3(0.0);
 vec3 specular = vec3(0.0);
 
@@ -29,9 +29,9 @@ float rand(vec2 co) { return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758
 float dither(vec2 uv) { return (rand(uv)*2.0-1.0) / 256.0; }
 
 // Attenuation 
-float la = 0.003;
-float lb = 0.004;
-float lc = 0.003;
+float la = 0.01;
+float lb = 0.001;
+float lc = 0.002;
 
 // vec3 reject(vec3 from, vec3 onto) {
 //     return from - onto*dot(from, onto)/dot(onto, onto);
@@ -45,10 +45,18 @@ void calculateLights(vec3 norm, vec3 roughness) {
         vec3 nToLight = normalize(toLight);
 
         float lightDistance = length(toLight);
+        // float L = 1 / (la + (lightDistance * lb) + (lightDistance * lightDistance * lc));
         
         // Diffuse
         float diffuseIntensity = max(dot(nToLight, norm), 0.0);
-        diffuse += diffuseIntensity * lights[i].intensity * hardColor * lights[i].color;
+        diffuse += diffuseIntensity * lights[i].intensity * lights[i].color;
+
+        float rough = 5 / (roughness.r * roughness.r);
+
+        vec3 reflectedL = reflect(-nToLight, norm);
+        float specularIntensity = pow(max(dot(reflectedL, toCam), 0.0), rough);
+        specular += specularIntensity * lights[i].intensity * lights[i].color;
+
     }
 }
 
@@ -60,11 +68,11 @@ void main()
 
     if (hasTexture) {
         calculateLights(norm, roughnessTextureSample);
-        vec3 lightColor = vec3(0.2) + diffuse + specular + dither(textureCoordinates);
+        vec3 lightColor = hardColor + diffuse + specular + dither(textureCoordinates);
         color = vec4(lightColor, 1.0) * brickTexture;
     } else {
-        calculateLights(normal, vec3(1.0));
-        vec3 lightColor = vec3(0.2) + diffuse + specular + dither(textureCoordinates);
+        calculateLights(normal, vec3(0.6));
+        vec3 lightColor = hardColor + diffuse + specular + dither(textureCoordinates);
         color = vec4(lightColor, 1.0);
     }
 }
