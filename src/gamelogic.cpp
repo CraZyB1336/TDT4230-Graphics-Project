@@ -35,7 +35,8 @@ sf::SoundBuffer* buffer;
 Gloom::Shader* shader;
 Gloom::Shader* shader_2D;
 Gloom::Shader* diffusePassShader;
-Gloom::Shader* subsurfaceProcShader;
+Gloom::Shader* subsurfaceHorizontalShader;
+Gloom::Shader* subsurfaceVerticalShader;
 sf::Sound* sound;
 
 CommandLineOptions options;
@@ -81,15 +82,17 @@ SceneNode* squareNode;
 
 // 3D Rendering Pipeline
 int diffuseSubTextureID;
-int subsurfacedTextureID;
+int subsurfacedHorizontalTextureID;
+int subsurfacedFinalTextureID;
 
 // 2D
 SceneNode* root2DNode;
 
 void initSubsurfacePipeline() {
     // Get empty texture ID for the diffuse subsurface texture pass.
-    diffuseSubTextureID     = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
-    subsurfacedTextureID    = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
+    diffuseSubTextureID             = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
+    subsurfacedHorizontalTextureID  = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
+    subsurfacedFinalTextureID       = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
 }
 
 void initLights() {
@@ -152,9 +155,13 @@ void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
     diffusePassShader = new Gloom::Shader();
     diffusePassShader->makeBasicShader("../res/shaders/simple.vert", "../res/shader/diffusePass.frag");
 
-    subsurfaceProcShader = new Gloom::Shader();
-    subsurfaceProcShader->attach("../res/shaders/subsurfaceProc.comp");
-    subsurfaceProcShader->link();
+    subsurfaceHorizontalShader  = new Gloom::Shader();
+    subsurfaceHorizontalShader->attach("../res/shaders/subsurfaceHorizontal.comp");
+    subsurfaceHorizontalShader->link();
+
+    subsurfaceVerticalShader    = new Gloom::Shader();
+    subsurfaceVerticalShader->attach("../res/shaders/subsurfaceVertical.comp");
+    subsurfaceVerticalShader->link();
 
     shader = new Gloom::Shader();
     shader->makeBasicShader("../res/shaders/simple.vert", "../res/shaders/simple.frag");
@@ -239,8 +246,10 @@ void renderFrame(GLFWwindow* window) {
     glViewport(0, 0, windowWidth, windowHeight);
 
     diffuseBufferStage(*diffusePassShader, rootNode, lightSources, VP, cameraPosition, diffuseSubTextureID);
-    
-    subsurfaceProcStage(*subsurfaceProcShader, diffuseSubTextureID, subsurfacedTextureID);
+
+    // SSSS Requires 2 passes since a full convolution kernel is O(n^2), but 2 passes is O(2n)
+    subsurfaceHorizontalStage(*subsurfaceHorizontalShader, diffuseSubTextureID, subsurfacedHorizontalTextureID, windowWidth, windowHeight);
+    subsurfaceVerticalStage(*subsurfaceVerticalShader, subsurfacedHorizontalTextureID, subsurfacedFinalTextureID, windowWidth, windowHeight);
 
     main3DStage(*shader, rootNode, lightSources, VP, cameraPosition);
     

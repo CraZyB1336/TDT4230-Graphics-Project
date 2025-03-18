@@ -91,11 +91,30 @@ void diffuseBufferStage(Gloom::Shader &shader, SceneNode* rootNode, LightSource*
     renderNode(rootNode, shader, lightSources);
 }
 
-void subsurfaceProcStage(Gloom::Shader &shader, int &diffuseSubTextureID, int &subsurfacedTextureID) {
+void subsurfaceHorizontalStage(Gloom::Shader &shader, int &diffuseSubTextureID, int &horizontalTextureID, int windowWidth, int windowHeight) {
     shader.activate();
 
     glBindImageTexture(0, diffuseSubTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGB);
+    glBindImageTexture(1, horizontalTextureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGB);
+
+    // Send out the compute shader! Angarde!
+    glDispatchCompute(windowWidth / 16, windowHeight / 16, 1);
+
+    // Ensure the second pass waits for this pass to finish.
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+}
+
+void subsurfaceVerticalStage(Gloom::Shader &shader, int &horizontalTextureID, int &subsurfacedTextureID, int windowWidth, int windowHeight) {
+    shader.activate();
+
+    glBindImageTexture(0, horizontalTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGB);
     glBindImageTexture(1, subsurfacedTextureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGB);
+
+    // Send out the compute shader! Angarde!
+    glDispatchCompute(windowWidth / 16, windowHeight / 16, 1);
+
+    // Ensure the second pass waits for this pass to finish.
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 
 void main3DStage(Gloom::Shader &shader, SceneNode* rootNode, LightSource* lightSources, glm::mat4 &VP, glm::vec3 &cameraPosition) {
