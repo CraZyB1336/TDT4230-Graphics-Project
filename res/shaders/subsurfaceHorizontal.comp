@@ -7,10 +7,11 @@ layout(binding = 1, rgba32f) uniform image2D horizontalTexture;
 
 // Construct a 1D Kernel with arbitrary weights
 // Weights are centered around index = 2
-// const float kernel[5] = float[](0.015, 0.05, 0.125, 0.05, 0.015);
+// const float kernel[5] = float[](0.08, 0.25, 0.34, 0.25, 0.08);
 
+const float kernel[7] = float[](0.01, 0.04938272, 0.28395062, 0.33333333, 0.28395062, 0.04938272, 0.01);
 // Testing no effect.
-const float kernel[5] = float[](0.0, 0.0, 1.0, 0.0, 0.0);
+// const float kernel[5] = float[](0.0, 0.0, 1.0, 0.0, 0.0);
 
 // Box blur
 // const float kernel[5] = float[](0.2, 0.2, 0.2, 0.2, 0.2);
@@ -23,9 +24,9 @@ const float kernel[5] = float[](0.0, 0.0, 1.0, 0.0, 0.0);
 
 void main() {
     ivec2 px = ivec2(gl_GlobalInvocationID.xy);
-    vec3 color = kernel[2] * imageLoad(diffuseTexture, px).rgb;
+    vec3 color = kernel[3] * imageLoad(diffuseTexture, px).rgb;
 
-    for (int i = 1; i < 3; i++) {
+    for (int i = 1; i < 4; i++) {
         // Left
         color += kernel[2 - i] * imageLoad(diffuseTexture, px - ivec2(i, 0)).rgb;
 

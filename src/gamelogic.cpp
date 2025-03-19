@@ -109,7 +109,7 @@ void initLights() {
     lightSources[0].color       = glm::vec3(1, 0.59, 0.3);
     lightSources[0].intensity   = 2.0;
 
-    squareNode->children.push_back(light1);
+    rootNode->children.push_back(light1);
 }
 
 void init3DNodes() {
