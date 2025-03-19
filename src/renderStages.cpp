@@ -38,9 +38,9 @@ void renderNode(SceneNode* node, Gloom::Shader &shader, LightSource* lightSource
             GLint hasTextureLocation = shader.getUniformFromName("hasTexture");
             glUniform1i(hasTextureLocation, 1);
 
-            glBindTextureUnit(0, node->textureID);
-            glBindTextureUnit(1, node->normalTextureID);
-            glBindTextureUnit(2, node->roughnessTextureID);
+            glBindTextureUnit(1, node->textureID);
+            glBindTextureUnit(2, node->normalTextureID);
+            glBindTextureUnit(3, node->roughnessTextureID);
 
             glBindVertexArray(node->vertexArrayObjectID);
             glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
@@ -76,8 +76,8 @@ void render2DNode(SceneNode* node, Gloom::Shader &shader) {
     }
 }
 
-void diffuseBufferStage(Gloom::Shader &shader, SceneNode* rootNode, LightSource* lightSources, glm::mat4 &VP, glm::vec3 &cameraPosition, int &diffuseTextureID) {
-    glBindFramebuffer(GL_FRAMEBUFFER, diffuseTextureID);
+void diffuseBufferStage(Gloom::Shader &shader, SceneNode* rootNode, LightSource* lightSources, glm::mat4 &VP, glm::vec3 &cameraPosition, unsigned int &diffuseFBO) {
+    glBindFramebuffer(GL_FRAMEBUFFER, diffuseFBO);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     shader.activate();
 
@@ -91,11 +91,11 @@ void diffuseBufferStage(Gloom::Shader &shader, SceneNode* rootNode, LightSource*
     renderNode(rootNode, shader, lightSources);
 }
 
-void subsurfaceHorizontalStage(Gloom::Shader &shader, int &diffuseSubTextureID, int &horizontalTextureID, int windowWidth, int windowHeight) {
+void subsurfaceHorizontalStage(Gloom::Shader &shader, unsigned int &diffuseSubTextureID, unsigned int &horizontalTextureID, int windowWidth, int windowHeight) {
     shader.activate();
 
-    glBindImageTexture(0, diffuseSubTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGB);
-    glBindImageTexture(1, horizontalTextureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGB);
+    glBindImageTexture(0, diffuseSubTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glBindImageTexture(1, horizontalTextureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
     // Send out the compute shader! Angarde!
     glDispatchCompute(windowWidth / 16, windowHeight / 16, 1);
@@ -104,11 +104,11 @@ void subsurfaceHorizontalStage(Gloom::Shader &shader, int &diffuseSubTextureID, 
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 
-void subsurfaceVerticalStage(Gloom::Shader &shader, int &horizontalTextureID, int &subsurfacedTextureID, int windowWidth, int windowHeight) {
+void subsurfaceVerticalStage(Gloom::Shader &shader, unsigned int &horizontalTextureID, unsigned int &subsurfacedTextureID, int windowWidth, int windowHeight) {
     shader.activate();
 
-    glBindImageTexture(0, horizontalTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGB);
-    glBindImageTexture(1, subsurfacedTextureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGB);
+    glBindImageTexture(0, horizontalTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glBindImageTexture(1, subsurfacedTextureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
     // Send out the compute shader! Angarde!
     glDispatchCompute(windowWidth / 16, windowHeight / 16, 1);
@@ -117,10 +117,13 @@ void subsurfaceVerticalStage(Gloom::Shader &shader, int &horizontalTextureID, in
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 
-void main3DStage(Gloom::Shader &shader, SceneNode* rootNode, LightSource* lightSources, glm::mat4 &VP, glm::vec3 &cameraPosition) {
+void main3DStage(Gloom::Shader &shader, SceneNode* rootNode, unsigned int &diffuseTextureID, LightSource* lightSources, glm::mat4 &VP, glm::vec3 &cameraPosition) {
     // Activate Depth test (?)
     glEnable(GL_DEPTH_TEST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     shader.activate();
+
+    glBindImageTexture(0, diffuseTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
 
     GLint VPLocation = shader.getUniformFromName("VP");
     glUniformMatrix4fv(VPLocation, 1, GL_FALSE, glm::value_ptr(VP));

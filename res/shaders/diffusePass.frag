@@ -54,11 +54,11 @@ void main()
 
     if (hasTexture) {
         calculateLights(norm);
-        vec3 lightColor = hardColor + diffuse + specular + dither(textureCoordinates);
+        vec3 lightColor = hardColor + diffuse + specular;
         color = vec4(lightColor, 1.0) * texture;
     } else {
         calculateLights(normal);
-        vec3 lightColor = hardColor + diffuse + specular + dither(textureCoordinates);
+        vec3 lightColor = hardColor + diffuse + specular;
         color = vec4(lightColor, 1.0);
     }
 }

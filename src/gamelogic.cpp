@@ -81,16 +81,21 @@ SceneNode* rootNode;
 SceneNode* squareNode;
 
 // 3D Rendering Pipeline
-int diffuseSubTextureID;
-int subsurfacedHorizontalTextureID;
-int subsurfacedFinalTextureID;
+unsigned int diffuseSubTextureID;
+unsigned int subsurfacedHorizontalTextureID;
+unsigned int subsurfacedFinalTextureID;
+unsigned int diffuseFBO;
 
 // 2D
 SceneNode* root2DNode;
 
 void initSubsurfacePipeline() {
     // Get empty texture ID for the diffuse subsurface texture pass.
+    glGenFramebuffers(1, &diffuseFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, diffuseFBO);
     diffuseSubTextureID             = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, diffuseSubTextureID, 0);
+
     subsurfacedHorizontalTextureID  = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
     subsurfacedFinalTextureID       = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
 }
@@ -104,7 +109,7 @@ void initLights() {
     lightSources[0].color       = glm::vec3(1, 0.59, 0.3);
     lightSources[0].intensity   = 2.0;
 
-    rootNode->children.push_back(light1);
+    squareNode->children.push_back(light1);
 }
 
 void init3DNodes() {
@@ -119,8 +124,8 @@ void init3DNodes() {
     // int brickTextureNRMID = getTextureID(brickTextureNRM);
     // int brickTextureRGHID = getTextureID(brickTextureRGH);
 
-    // Mesh squareMesh = cube({20.0, 20.0, 20.0}, {15.0, 15.0}, true, false, {1.0, 1.0, 1.0});
-    Mesh squareMesh = generateSphere(15.0, 40, 40, {2.0, 2.0});
+    Mesh squareMesh = cube({20.0, 20.0, 20.0}, {15.0, 15.0}, true, false, {1.0, 1.0, 1.0});
+    // Mesh squareMesh = generateSphere(15.0, 40, 40, {2.0, 2.0});
     std::vector<unsigned int> squareVAOIBO = generateBuffer(squareMesh);
     squareNode = createSceneNode();
     squareNode->nodeType            = GEOMETRY;
@@ -153,7 +158,7 @@ void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
 
     // Shaders
     diffusePassShader = new Gloom::Shader();
-    diffusePassShader->makeBasicShader("../res/shaders/simple.vert", "../res/shader/diffusePass.frag");
+    diffusePassShader->makeBasicShader("../res/shaders/simple.vert", "../res/shaders/diffusePass.frag");
 
     subsurfaceHorizontalShader  = new Gloom::Shader();
     subsurfaceHorizontalShader->attach("../res/shaders/subsurfaceHorizontal.comp");
@@ -245,13 +250,13 @@ void renderFrame(GLFWwindow* window) {
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
     glViewport(0, 0, windowWidth, windowHeight);
 
-    diffuseBufferStage(*diffusePassShader, rootNode, lightSources, VP, cameraPosition, diffuseSubTextureID);
+    diffuseBufferStage(*diffusePassShader, rootNode, lightSources, VP, cameraPosition, diffuseFBO);
 
     // SSSS Requires 2 passes since a full convolution kernel is O(n^2), but 2 passes is O(2n)
     subsurfaceHorizontalStage(*subsurfaceHorizontalShader, diffuseSubTextureID, subsurfacedHorizontalTextureID, windowWidth, windowHeight);
     subsurfaceVerticalStage(*subsurfaceVerticalShader, subsurfacedHorizontalTextureID, subsurfacedFinalTextureID, windowWidth, windowHeight);
 
-    main3DStage(*shader, rootNode, lightSources, VP, cameraPosition);
+    main3DStage(*shader, rootNode, subsurfacedFinalTextureID, lightSources, VP, cameraPosition);
     
-    main2DStage(*shader_2D, root2DNode, OrthoVP);
+    // main2DStage(*shader_2D, root2DNode, OrthoVP);
 }

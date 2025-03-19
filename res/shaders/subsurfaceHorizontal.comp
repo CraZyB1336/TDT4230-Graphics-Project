@@ -2,9 +2,36 @@
 
 layout(local_size_x = 16, local_size_y = 16) in;
 
-layout(binding = 0) uniform image2D diffuseTexture;
-layout(binding = 1) uniform image2D subsurfacedTexture;
+layout(binding = 0, rgba32f) uniform image2D diffuseTexture;
+layout(binding = 1, rgba32f) uniform image2D horizontalTexture;
+
+// Construct a 1D Kernel with arbitrary weights
+// Weights are centered around index = 2
+// const float kernel[5] = float[](0.015, 0.05, 0.125, 0.05, 0.015);
+
+// Testing no effect.
+const float kernel[5] = float[](0.0, 0.0, 1.0, 0.0, 0.0);
+
+// Box blur
+// const float kernel[5] = float[](0.2, 0.2, 0.2, 0.2, 0.2);
+
+// Sharpening kernel
+// const float kernel[5] = float[](-0.1, -0.1, 1.4, -0.1, -0.1);
+
+// Edge detection
+// const float kernel[5] = float[](-1.0, -1.0, 4.0, -1.0, -1.0);
 
 void main() {
+    ivec2 px = ivec2(gl_GlobalInvocationID.xy);
+    vec3 color = kernel[2] * imageLoad(diffuseTexture, px).rgb;
 
+    for (int i = 1; i < 3; i++) {
+        // Left
+        color += kernel[2 - i] * imageLoad(diffuseTexture, px - ivec2(i, 0)).rgb;
+
+        // Right
+        color += kernel[2 + i] * imageLoad(diffuseTexture, px + ivec2(i, 0)).rgb;
+    }
+
+    imageStore(horizontalTexture, px, vec4(color, 1.0));
 }
