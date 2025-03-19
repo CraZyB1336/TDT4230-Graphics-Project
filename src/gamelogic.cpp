@@ -135,7 +135,7 @@ void init3DNodes() {
     squareNode->textureID           = brickTextureID;
     squareNode->normalTextureID     = brickTextureNRMID;
     squareNode->roughnessTextureID  = brickTextureRGHID;
-    squareNode->isSubsurface        = false;
+    squareNode->isSubsurface        = true;
 
     rootNode->children.push_back(squareNode);
 
