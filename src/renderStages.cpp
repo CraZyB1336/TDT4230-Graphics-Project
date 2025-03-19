@@ -1,6 +1,6 @@
 #include "renderStages.hpp"
 
-void renderNode(SceneNode* node, Gloom::Shader &shader, LightSource* lightSources) {
+void renderDiffuseNode(SceneNode* node, Gloom::Shader &shader, LightSource* lightSources) {
     GLint MLocation = shader.getUniformFromName("M");
     glUniformMatrix4fv(MLocation, 1, GL_FALSE, glm::value_ptr(node->currentTransformationMatrix));
 
@@ -35,15 +35,76 @@ void renderNode(SceneNode* node, Gloom::Shader &shader, LightSource* lightSource
         }
         case SPOT_LIGHT: break;
         case GEOMETRY_TEXTURE: {
-            GLint hasTextureLocation = shader.getUniformFromName("hasTexture");
-            glUniform1i(hasTextureLocation, 1);
+            if (node->vertexArrayObjectID != -1) {
+                GLint hasTextureLocation = shader.getUniformFromName("hasTexture");
+                glUniform1i(hasTextureLocation, 1);
 
-            glBindTextureUnit(1, node->textureID);
-            glBindTextureUnit(2, node->normalTextureID);
-            glBindTextureUnit(3, node->roughnessTextureID);
+                glBindTextureUnit(1, node->textureID);
+                glBindTextureUnit(2, node->normalTextureID);
+                glBindTextureUnit(3, node->roughnessTextureID);
 
-            glBindVertexArray(node->vertexArrayObjectID);
-            glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
+                glBindVertexArray(node->vertexArrayObjectID);
+                glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
+            }
+            break;
+        }
+        default: break;
+    }
+
+    for(SceneNode* child : node->children) {
+        renderDiffuseNode(child, shader, lightSources);
+    }
+}
+
+void renderNode(SceneNode* node, Gloom::Shader &shader, LightSource* lightSources) {
+    GLint subsurfaceLocation = shader.getUniformFromName("isSubsurface");
+    glUniform1i(subsurfaceLocation, node->isSubsurface);
+
+    GLint MLocation = shader.getUniformFromName("M");
+    glUniformMatrix4fv(MLocation, 1, GL_FALSE, glm::value_ptr(node->currentTransformationMatrix));
+
+    GLint normalMatLoc = shader.getUniformFromName("NM");
+
+    glm::mat3 NM3 = glm::mat3(node->currentTransformationMatrix);
+    glm::mat3 NM = glm::transpose(glm::inverse(NM3));
+    glUniformMatrix3fv(normalMatLoc, 1, GL_FALSE, glm::value_ptr(NM));
+
+    switch(node->nodeType) {
+        case GEOMETRY:
+            if(node->vertexArrayObjectID != -1) {    
+                GLint hasTextureLocation = shader.getUniformFromName("hasTexture");
+                glUniform1i(hasTextureLocation, 0);
+                glBindVertexArray(node->vertexArrayObjectID);
+                glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
+            }
+            break;
+        case POINT_LIGHT: {
+            int i = node->lightSourceID;
+            if (i != -1) {
+                GLint lightPosLoc = shader.getUniformFromName("lights[" + std::to_string(i) + "].position");
+                glUniform3f(lightPosLoc, lightSources[i].position.x, lightSources[i].position.y, lightSources[i].position.z);
+
+                GLint lightColLoc = shader.getUniformFromName("lights[" + std::to_string(i) + "].color");
+                glUniform3f(lightColLoc, lightSources[i].color.x, lightSources[i].color.y, lightSources[i].color.z);
+
+                GLint lightIntLoc = shader.getUniformFromName("lights[" + std::to_string(i) + "].intensity");
+                glUniform1f(lightIntLoc, lightSources[i].intensity);
+            }
+            break;
+        }
+        case SPOT_LIGHT: break;
+        case GEOMETRY_TEXTURE: {
+            if (node->vertexArrayObjectID != -1) {
+                GLint hasTextureLocation = shader.getUniformFromName("hasTexture");
+                glUniform1i(hasTextureLocation, 1);
+
+                glBindTextureUnit(1, node->textureID);
+                glBindTextureUnit(2, node->normalTextureID);
+                glBindTextureUnit(3, node->roughnessTextureID);
+
+                glBindVertexArray(node->vertexArrayObjectID);
+                glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
+            }
             break;
         }
         default: break;
@@ -88,7 +149,7 @@ void diffuseBufferStage(Gloom::Shader &shader, SceneNode* rootNode, LightSource*
     glUniform3f(CamPositionLocation, cameraPosition.x, cameraPosition.y, cameraPosition.z);
 
     // Render
-    renderNode(rootNode, shader, lightSources);
+    renderDiffuseNode(rootNode, shader, lightSources);
 }
 
 void subsurfaceHorizontalStage(Gloom::Shader &shader, unsigned int &diffuseSubTextureID, unsigned int &horizontalTextureID, int windowWidth, int windowHeight) {

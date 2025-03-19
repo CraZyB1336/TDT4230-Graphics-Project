@@ -5,8 +5,8 @@ in layout(location = 1) vec2 textureCoordinates;
 in layout(location = 2) vec3 position;
 in layout(location = 3) mat3 TBN;
 
-layout(binding = 0) uniform sampler2D textureSample;
-layout(binding = 1) uniform sampler2D normalTextureSample;
+layout(binding = 1) uniform sampler2D textureSample;
+layout(binding = 2) uniform sampler2D normalTextureSample;
 
 struct LightSource {
     vec3 position;

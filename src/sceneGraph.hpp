@@ -25,12 +25,13 @@ struct SceneNode {
 
         referencePoint 		= glm::vec3(0, 0, 0);
         vertexArrayObjectID = -1;
-		indexArrayObjectID = -1;
+		indexArrayObjectID 	= -1;
 		lightSourceID 		= -1;
 		textureID 			= -1;
 		normalTextureID		= -1;
 		roughnessTextureID	= -1;
         VAOIndexCount 		= 0;
+		isSubsurface		= false;
 
         nodeType = GEOMETRY;
 
@@ -59,6 +60,7 @@ struct SceneNode {
 	int normalTextureID;
 	int roughnessTextureID;
 	unsigned int VAOIndexCount;
+	bool isSubsurface;
 
 	// Node type is used to determine how to handle the contents of a node
 	SceneNodeType nodeType;

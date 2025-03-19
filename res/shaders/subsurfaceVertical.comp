@@ -7,32 +7,38 @@ layout(binding = 1, rgba32f) uniform image2D subsurfacedTexture;
 
 // Construct a 1D Kernel with arbitrary weights
 // Weights are centered around index = 2
-// const float kernel[5] = float[](0.08, 0.25, 0.34, 0.25, 0.08);
+// Construct a 1D Kernel with arbitrary weights
+// Weights are centered around index = 2
+// const float kernel[4] = float[](0.34, 0.18, 0.1, 0.05);
 
-const float kernel[7] = float[](0.01, 0.04938272, 0.28395062, 0.33333333, 0.28395062, 0.04938272, 0.01);
+// Gaussian blur
+// const float kernel[3] = float[](0.375, 0.25, 0.0625);
 
-// Testing no effect.
-// const float kernel[5] = float[](0.0, 0.0, 1.0, 0.0, 0.0);
+// Jorge Jimenez's SSSS kernel
+const float kernel[4] = float[](0.383, 0.242, 0.061, 0.006);
+
+// Identity
+// const float kernel[3] = float[](1.0, 0.0, 0.0);
 
 // Box blur
-// const float kernel[5] = float[](0.2, 0.2, 0.2, 0.2, 0.2);
+// const float kernel[3] = float[](0.2, 0.2, 0.2);
 
 // Sharpening kernel
-// const float kernel[5] = float[](-0.1, -0.1, 1.4, -0.1, -0.1);
+// const float kernel[3] = float[](1.4, -0.1, -0.1);
 
 // Edge detection
-// const float kernel[5] = float[](-1.0, -1.0, 4.0, -1.0, -1.0);
+// const float kernel[3] = float[](4.0, -1.0, -1.0);
 
 void main() {
     ivec2 px = ivec2(gl_GlobalInvocationID.xy);
-    vec3 color = kernel[3] * imageLoad(horizontalTexture, px).rgb;
+    vec3 color = kernel[0] * imageLoad(horizontalTexture, px).rgb;
 
-    for (int i = 1; i < 4; i++) {
+    for (int i = 1; i < kernel.length(); i++) {
         // Left
-        color += kernel[2 - i] * imageLoad(horizontalTexture, px - ivec2(0, i)).rgb;
+        color += kernel[0 + i] * imageLoad(horizontalTexture, px - ivec2(i, 0)).rgb;
 
         // Right
-        color += kernel[2 + i] * imageLoad(horizontalTexture, px + ivec2(0, i)).rgb;
+        color += kernel[0 + i] * imageLoad(horizontalTexture, px + ivec2(i, 0)).rgb;
     }
 
     imageStore(subsurfacedTexture, px, vec4(color, 1.0));

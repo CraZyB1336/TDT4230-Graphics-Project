@@ -116,25 +116,26 @@ void init3DNodes() {
     rootNode = createSceneNode();
 
     // Generate Textures
-    // PNGImage brickTexture = loadPNGFile("../res/textures/Brick03_col.png");
-    // PNGImage brickTextureNRM = loadPNGFile("../res/textures/Brick03_nrm.png");
-    // PNGImage brickTextureRGH = loadPNGFile("../res/textures/Brick03_rgh.png");
+    PNGImage brickTexture = loadPNGFile("../res/textures/Brick03_col.png");
+    PNGImage brickTextureNRM = loadPNGFile("../res/textures/Brick03_nrm.png");
+    PNGImage brickTextureRGH = loadPNGFile("../res/textures/Brick03_rgh.png");
 
-    // int brickTextureID = getTextureID(brickTexture);
-    // int brickTextureNRMID = getTextureID(brickTextureNRM);
-    // int brickTextureRGHID = getTextureID(brickTextureRGH);
+    int brickTextureID = getTextureID(brickTexture);
+    int brickTextureNRMID = getTextureID(brickTextureNRM);
+    int brickTextureRGHID = getTextureID(brickTextureRGH);
 
-    Mesh squareMesh = cube({20.0, 20.0, 20.0}, {15.0, 15.0}, true, false, {1.0, 1.0, 1.0});
-    // Mesh squareMesh = generateSphere(15.0, 40, 40, {2.0, 2.0});
+    // Mesh squareMesh = cube({20.0, 20.0, 20.0}, {15.0, 15.0}, true, false, {1.0, 1.0, 1.0});
+    Mesh squareMesh = generateSphere(15.0, 40, 40, {2.0, 2.0});
     std::vector<unsigned int> squareVAOIBO = generateBuffer(squareMesh);
     squareNode = createSceneNode();
-    squareNode->nodeType            = GEOMETRY;
+    squareNode->nodeType            = GEOMETRY_TEXTURE;
     squareNode->vertexArrayObjectID = squareVAOIBO[0];
     squareNode->indexArrayObjectID  = squareVAOIBO[1];
     squareNode->VAOIndexCount       = squareMesh.indices.size();
-    // squareNode->textureID           = brickTextureID;
-    // squareNode->normalTextureID     = brickTextureNRMID;
-    // squareNode->roughnessTextureID  = brickTextureRGHID;
+    squareNode->textureID           = brickTextureID;
+    squareNode->normalTextureID     = brickTextureNRMID;
+    squareNode->roughnessTextureID  = brickTextureRGHID;
+    squareNode->isSubsurface        = false;
 
     rootNode->children.push_back(squareNode);
 

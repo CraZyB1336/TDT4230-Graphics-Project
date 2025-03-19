@@ -19,6 +19,7 @@ struct LightSource {
 uniform LightSource[1] lights;
 uniform vec3 cameraPosition;
 uniform bool hasTexture;
+uniform bool isSubsurface;
 
 vec3 hardColor = vec3(0.06);
 vec3 diffuse = vec3(0.0);
@@ -52,34 +53,35 @@ void calculateLights(vec3 norm, vec3 roughness) {
         float diffuseIntensity = max(dot(nToLight, norm), 0.0);
         diffuse += diffuseIntensity * lights[i].intensity * lights[i].color;
 
-        // float rough = 5 / (roughness.r * roughness.r);
+        float rough = 5 / (roughness.r * roughness.r);
 
-        // vec3 reflectedL = reflect(-nToLight, norm);
-        // float specularIntensity = pow(max(dot(reflectedL, toCam), 0.0), rough);
-        // specular += specularIntensity * lights[i].intensity * lights[i].color;
+        vec3 reflectedL = reflect(-nToLight, norm);
+        float specularIntensity = pow(max(dot(reflectedL, toCam), 0.0), rough);
+        specular += specularIntensity * lights[i].intensity * lights[i].color;
 
     }
 }
 
 void main()
 {
-    // vec3 norm = TBN * (texture(normalTextureSample, textureCoordinates).xyz * 2.0 - 1.0);
-    // vec4 brickTexture = texture(textureSample, textureCoordinates);
-    // vec3 roughnessTextureSample = texture(roughnessTextureSample, textureCoordinates).xyz;
+    if (isSubsurface) {
+        ivec2 pxCoord = ivec2(gl_FragCoord.xy);
+        vec4 diffuseTexture = imageLoad(diffuseTextureSample, pxCoord);
 
-    // if (hasTexture) {
-    //     calculateLights(norm, roughnessTextureSample);
-    //     vec3 lightColor = hardColor + diffuse + specular + dither(textureCoordinates);
-    //     color = vec4(lightColor, 1.0) * brickTexture;
-    // } else {
-    //     calculateLights(normal, vec3(0.6));
-    //     vec3 lightColor = hardColor + diffuse + specular + dither(textureCoordinates);
-    //     color = vec4(lightColor, 1.0);
-    // }
+        color = diffuseTexture;
+    } else {
+        vec3 norm = TBN * (texture(normalTextureSample, textureCoordinates).xyz * 2.0 - 1.0);
+        vec4 brickTexture = texture(textureSample, textureCoordinates);
+        vec3 roughnessTextureSample = texture(roughnessTextureSample, textureCoordinates).xyz;
 
-    ivec2 pxCoord = ivec2(gl_FragCoord.xy);
-
-    vec4 diffuseTexture = imageLoad(diffuseTextureSample, pxCoord);
-
-    color = diffuseTexture;
+        if (hasTexture) {
+            calculateLights(norm, roughnessTextureSample);
+            vec3 lightColor = hardColor + diffuse + specular + dither(textureCoordinates);
+            color = vec4(lightColor, 1.0) * brickTexture;
+        } else {
+            calculateLights(normal, vec3(0.6));
+            vec3 lightColor = hardColor + diffuse + specular + dither(textureCoordinates);
+            color = vec4(lightColor, 1.0);
+        }
+    }
 }
