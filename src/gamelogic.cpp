@@ -97,6 +97,17 @@ void initSubsurfacePipeline() {
     diffuseSubTextureID             = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, diffuseSubTextureID, 0);
 
+    // Attach a depth buffer to the FBO
+    unsigned int depthBuffer;
+    glGenTextures(1, &depthBuffer);
+    glBindTexture(GL_TEXTURE_2D, depthBuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, windowWidth, windowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthBuffer, 0);
+
     subsurfacedHorizontalTextureID  = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
     subsurfacedFinalTextureID       = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
 }
@@ -137,7 +148,7 @@ void init3DNodes() {
     // squareNode->textureID           = brickTextureID;
     // squareNode->normalTextureID     = brickTextureNRMID;
     // squareNode->roughnessTextureID  = brickTextureRGHID;
-    squareNode->isSubsurface        = false;
+    squareNode->isSubsurface        = true;
 
     rootNode->children.push_back(squareNode);
 

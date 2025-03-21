@@ -80,13 +80,13 @@ void main()
         ivec2 pxCoord = ivec2(gl_FragCoord.xy);
         vec4 diffuseTexture = imageLoad(diffuseTextureSample, pxCoord);
 
-        if (hasTexture) {
-            calculateSpecular(norm, roughnessTextureSample);
-        } else {
-            calculateSpecular(normal, vec3(1.0));
-        }
+        // if (hasTexture) {
+        //     calculateSpecular(norm, roughnessTextureSample);
+        // } else {
+        //     calculateSpecular(normal, vec3(1.0));
+        // }
 
-        vec3 lightColor = hardColor + diffuseTexture.rgb + specular + dither(textureCoordinates);
+        vec3 lightColor = diffuseTexture.rgb + specular + dither(textureCoordinates);
         color = vec4(lightColor, 1.0);
     } else {
         vec4 brickTexture = texture(textureSample, textureCoordinates);

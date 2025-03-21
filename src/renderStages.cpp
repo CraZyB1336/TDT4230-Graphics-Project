@@ -138,6 +138,7 @@ void render2DNode(SceneNode* node, Gloom::Shader &shader) {
 
 void diffuseBufferStage(Gloom::Shader &shader, SceneNode* rootNode, LightSource* lightSources, glm::mat4 &VP, glm::vec3 &cameraPosition, unsigned int &diffuseFBO) {
     glBindFramebuffer(GL_FRAMEBUFFER, diffuseFBO);
+    glEnable(GL_DEPTH_TEST);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     shader.activate();
 
@@ -179,7 +180,6 @@ void subsurfaceVerticalStage(Gloom::Shader &shader, unsigned int &horizontalText
 
 void main3DStage(Gloom::Shader &shader, SceneNode* rootNode, unsigned int &diffuseTextureID, LightSource* lightSources, glm::mat4 &VP, glm::vec3 &cameraPosition) {
     // Activate Depth test (?)
-    glEnable(GL_DEPTH_TEST);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     shader.activate();
 
