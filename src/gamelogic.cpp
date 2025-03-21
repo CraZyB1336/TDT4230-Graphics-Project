@@ -80,6 +80,7 @@ glm::mat4 OrthoVP;
 // 3D
 SceneNode* rootNode;
 SceneNode* squareNode;
+// SceneNode* skyBoxNode;
 
 // 3D Rendering Pipeline
 unsigned int diffuseSubTextureID;
@@ -151,6 +152,13 @@ void init3DNodes() {
     squareNode->isSubsurface        = true;
 
     rootNode->children.push_back(squareNode);
+
+    Mesh skyBox = cube({200.0, 200.0, 200.0}, {30.0, 30.0}, true, true, {1.0, 1.0, 1.0});
+    std::vector<unsigned int> skyboxVAOIBO = generateBuffer(skyBox);
+    rootNode->nodeType              = GEOMETRY;
+    rootNode->vertexArrayObjectID   = skyboxVAOIBO[0];
+    rootNode->indexArrayObjectID    = skyboxVAOIBO[1];
+    rootNode->VAOIndexCount         = skyBox.indices.size();
 
     initLights();
 }
