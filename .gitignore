@@ -40,3 +40,5 @@
 
 /.vscode/*
 /.vs/
+
+!/res/models/*.obj

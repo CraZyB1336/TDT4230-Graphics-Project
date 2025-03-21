@@ -54,11 +54,9 @@ void main()
 
     if (hasTexture) {
         calculateLights(norm);
-        vec3 lightColor = hardColor + diffuse + specular;
-        color = vec4(lightColor, 1.0) * texture;
+        color = vec4(diffuse, 1.0) * texture;
     } else {
         calculateLights(normal);
-        vec3 lightColor = hardColor + diffuse + specular;
-        color = vec4(lightColor, 1.0);
+        color = vec4(diffuse, 1.0);
     }
 }

@@ -86,7 +86,8 @@ void main()
             calculateSpecular(normal, vec3(1.0));
         }
 
-        color = vec4(hardColor, 1.0) + diffuseTexture + vec4(specular, 1.0) + dither(textureCoordinates);
+        vec3 lightColor = hardColor + diffuseTexture.rgb + specular + dither(textureCoordinates);
+        color = vec4(lightColor, 1.0);
     } else {
         vec4 brickTexture = texture(textureSample, textureCoordinates);
 

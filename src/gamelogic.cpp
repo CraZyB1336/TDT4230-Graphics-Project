@@ -23,6 +23,7 @@
 #include "textureHandler.hpp"
 #include "renderStages.hpp"
 #include "shaderStructs.hpp"
+#include "utilities/meshFileReader.hpp"
 
 enum KeyFrameAction {
     BOTTOM, TOP
@@ -69,7 +70,7 @@ glm::mat4 identityMat = {
 
 // Uniforms 3D
 glm::mat4 VP;
-glm::vec3 cameraPosition = {0.0, 0.0, 30.0};
+glm::vec3 cameraPosition = {0.0, 0.0, 10.0};
 float cameraAngle = 35.0f;
 
 // Uniforms 2D
@@ -116,26 +117,27 @@ void init3DNodes() {
     rootNode = createSceneNode();
 
     // Generate Textures
-    PNGImage brickTexture = loadPNGFile("../res/textures/Brick03_col.png");
-    PNGImage brickTextureNRM = loadPNGFile("../res/textures/Brick03_nrm.png");
-    PNGImage brickTextureRGH = loadPNGFile("../res/textures/Brick03_rgh.png");
+    // PNGImage brickTexture = loadPNGFile("../res/textures/Brick03_col.png");
+    // PNGImage brickTextureNRM = loadPNGFile("../res/textures/Brick03_nrm.png");
+    // PNGImage brickTextureRGH = loadPNGFile("../res/textures/Brick03_rgh.png");
 
-    int brickTextureID = getTextureID(brickTexture);
-    int brickTextureNRMID = getTextureID(brickTextureNRM);
-    int brickTextureRGHID = getTextureID(brickTextureRGH);
+    // int brickTextureID = getTextureID(brickTexture);
+    // int brickTextureNRMID = getTextureID(brickTextureNRM);
+    // int brickTextureRGHID = getTextureID(brickTextureRGH);
 
     // Mesh squareMesh = cube({20.0, 20.0, 20.0}, {15.0, 15.0}, true, false, {1.0, 1.0, 1.0});
-    Mesh squareMesh = generateSphere(15.0, 40, 40, {2.0, 2.0});
+    // Mesh squareMesh = generateSphere(15.0, 40, 40, {2.0, 2.0});
+    Mesh squareMesh = loadOBJFile("../res/models/hand.obj");
     std::vector<unsigned int> squareVAOIBO = generateBuffer(squareMesh);
     squareNode = createSceneNode();
-    squareNode->nodeType            = GEOMETRY_TEXTURE;
+    squareNode->nodeType            = GEOMETRY;
     squareNode->vertexArrayObjectID = squareVAOIBO[0];
     squareNode->indexArrayObjectID  = squareVAOIBO[1];
     squareNode->VAOIndexCount       = squareMesh.indices.size();
-    squareNode->textureID           = brickTextureID;
-    squareNode->normalTextureID     = brickTextureNRMID;
-    squareNode->roughnessTextureID  = brickTextureRGHID;
-    squareNode->isSubsurface        = true;
+    // squareNode->textureID           = brickTextureID;
+    // squareNode->normalTextureID     = brickTextureNRMID;
+    // squareNode->roughnessTextureID  = brickTextureRGHID;
+    squareNode->isSubsurface        = false;
 
     rootNode->children.push_back(squareNode);
 

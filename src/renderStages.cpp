@@ -41,7 +41,6 @@ void renderDiffuseNode(SceneNode* node, Gloom::Shader &shader, LightSource* ligh
 
                 glBindTextureUnit(1, node->textureID);
                 glBindTextureUnit(2, node->normalTextureID);
-                glBindTextureUnit(3, node->roughnessTextureID);
 
                 glBindVertexArray(node->vertexArrayObjectID);
                 glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
