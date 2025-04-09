@@ -13,8 +13,10 @@
 #include <chrono>
 #include <fstream>
 
+#include "shaderStructs.hpp"
+
 enum SceneNodeType {
-	GEOMETRY, POINT_LIGHT, SPOT_LIGHT, GEOMETRY_2D, GEOMETRY_TEXTURE
+	GEOMETRY, POINT_LIGHT, SPOT_LIGHT, DIR_LIGHT, GEOMETRY_2D, GEOMETRY_TEXTURE
 };
 
 struct SceneNode {
@@ -32,9 +34,9 @@ struct SceneNode {
 		roughnessTextureID	= -1;
         VAOIndexCount 		= 0;
 		isSubsurface		= false;
+		material 			= new Material();
 
         nodeType = GEOMETRY;
-
 	}
 
 	// A list of all children that belong to this node.
@@ -61,6 +63,7 @@ struct SceneNode {
 	int roughnessTextureID;
 	unsigned int VAOIndexCount;
 	bool isSubsurface;
+	Material* material;
 
 	// Node type is used to determine how to handle the contents of a node
 	SceneNodeType nodeType;

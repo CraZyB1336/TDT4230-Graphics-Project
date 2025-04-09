@@ -21,7 +21,10 @@ uniform vec3 cameraPosition;
 uniform bool hasTexture;
 uniform bool isSubsurface;
 
-vec3 hardColor = vec3(0.06);
+uniform vec3 albedo;
+uniform float specularFactor;
+uniform float roughnessFactor;
+
 vec3 diffuse = vec3(0.0);
 vec3 specular = vec3(0.0);
 
@@ -39,7 +42,7 @@ float lc = 0.002;
 //     return from - onto*dot(from, onto)/dot(onto, onto);
 // }
 
-void calculateDiffusion(vec3 norm) {
+void calculateDiffusion(vec3 norm, float roughness) {
     for (int i = 0; i < 1; i++) {
         vec3 toLight = lights[i].position - position;
         vec3 nToLight = normalize(toLight);
@@ -49,11 +52,11 @@ void calculateDiffusion(vec3 norm) {
         
         // Diffuse
         float diffuseIntensity = max(dot(nToLight, norm), 0.0);
-        diffuse += diffuseIntensity * lights[i].intensity * lights[i].color;
+        diffuse += diffuseIntensity * lights[i].intensity * lights[i].color * (1.0 - roughness);
     }
 }
 
-void calculateSpecular(vec3 norm, vec3 roughness) {
+void calculateSpecular(vec3 norm, float roughness) {
     vec3 toCam = normalize(cameraPosition - position);
     
     for (int i = 0; i < 1; i++) {
@@ -63,11 +66,11 @@ void calculateSpecular(vec3 norm, vec3 roughness) {
         float lightDistance = length(toLight);
         // float L = 1 / (la + (lightDistance * lb) + (lightDistance * lightDistance * lc));
 
-        float rough = 5 / (roughness.r * roughness.r);
+        float rough = (5 / (roughness * roughness));
 
         vec3 reflectedL = reflect(-nToLight, norm);
         float specularIntensity = pow(max(dot(reflectedL, toCam), 0.0), rough);
-        specular += specularIntensity * lights[i].intensity * lights[i].color;
+        specular += specularIntensity * lights[i].intensity * lights[i].color * specularFactor;
     }
 }
 
@@ -76,14 +79,23 @@ void main()
     vec3 norm = TBN * (texture(normalTextureSample, textureCoordinates).xyz * 2.0 - 1.0);
     vec3 roughnessTextureSample = texture(roughnessTextureSample, textureCoordinates).xyz;
 
+    float roughness = roughnessFactor;
+
+    if (roughnessFactor >= 1.0)
+    {
+        roughness = 0.95;
+    } else if (roughnessFactor <= 0) {
+        roughness = 0.05;
+    }
+
     if (isSubsurface) {
         ivec2 pxCoord = ivec2(gl_FragCoord.xy);
         vec4 diffuseTexture = imageLoad(diffuseTextureSample, pxCoord);
 
         if (hasTexture) {
-            calculateSpecular(norm, roughnessTextureSample);
+            calculateSpecular(norm, roughnessTextureSample.r);
         } else {
-            calculateSpecular(normal, vec3(1.0));
+            calculateSpecular(normal, roughness);
         }
 
         vec3 lightColor = diffuseTexture.rgb + specular + dither(textureCoordinates);
@@ -92,14 +104,14 @@ void main()
         vec4 brickTexture = texture(textureSample, textureCoordinates);
 
         if (hasTexture) {
-            calculateDiffusion(norm);
-            calculateSpecular(norm, roughnessTextureSample);
-            vec3 lightColor = hardColor + diffuse + specular + dither(textureCoordinates);
+            calculateDiffusion(norm, roughnessTextureSample.r);
+            calculateSpecular(norm, roughnessTextureSample.r);
+            vec3 lightColor = albedo + diffuse + specular + dither(textureCoordinates);
             color = vec4(lightColor, 1.0) * brickTexture;
         } else {
-            calculateDiffusion(normal);
-            calculateSpecular(normal, vec3(1.0));
-            vec3 lightColor = hardColor + diffuse + specular + dither(textureCoordinates);
+            calculateDiffusion(normal, roughness);
+            calculateSpecular(normal, roughness);
+            vec3 lightColor = albedo + diffuse + specular + dither(textureCoordinates);
             color = vec4(lightColor, 1.0);
         }
     }

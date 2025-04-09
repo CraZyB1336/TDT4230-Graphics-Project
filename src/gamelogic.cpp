@@ -149,11 +149,14 @@ void init3DNodes() {
     // squareNode->textureID           = brickTextureID;
     // squareNode->normalTextureID     = brickTextureNRMID;
     // squareNode->roughnessTextureID  = brickTextureRGHID;
-    squareNode->isSubsurface        = true;
+    squareNode->isSubsurface                = true;
+    squareNode->material->albedo            = {0.85, 0.63, 0.29};
+    squareNode->material->specularFactor    = 0.7;
+    squareNode->material->roughnessFactor   = 0.5;
 
     rootNode->children.push_back(squareNode);
 
-    Mesh skyBox = cube({200.0, 200.0, 200.0}, {30.0, 30.0}, true, true, {1.0, 1.0, 1.0});
+    Mesh skyBox = cube({300.0, 300.0, 300.0}, {30.0, 30.0}, true, true, {1.0, 1.0, 1.0});
     std::vector<unsigned int> skyboxVAOIBO = generateBuffer(skyBox);
     rootNode->nodeType              = GEOMETRY;
     rootNode->vertexArrayObjectID   = skyboxVAOIBO[0];
@@ -272,12 +275,13 @@ void renderFrame(GLFWwindow* window) {
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
     glViewport(0, 0, windowWidth, windowHeight);
 
+    passInAllLights(lightSources, 1, *diffusePassShader);
     diffuseBufferStage(*diffusePassShader, rootNode, lightSources, VP, cameraPosition, diffuseFBO);
 
-    // SSSS Requires 2 passes since a full convolution kernel is O(n^2), but 2 passes is O(2n)
     subsurfaceHorizontalStage(*subsurfaceHorizontalShader, diffuseSubTextureID, subsurfacedHorizontalTextureID, windowWidth, windowHeight);
     subsurfaceVerticalStage(*subsurfaceVerticalShader, subsurfacedHorizontalTextureID, subsurfacedFinalTextureID, windowWidth, windowHeight);
 
+    passInAllLights(lightSources, 1, *shader);
     main3DStage(*shader, rootNode, subsurfacedFinalTextureID, lightSources, VP, cameraPosition);
     
     // main2DStage(*shader_2D, root2DNode, OrthoVP);

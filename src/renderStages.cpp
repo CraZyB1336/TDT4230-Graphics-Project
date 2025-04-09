@@ -1,5 +1,31 @@
 #include "renderStages.hpp"
 
+void passInAllLights(LightSource* lightSources, int lightSourcesLen, Gloom::Shader &shader)
+{
+    for (int i = 0; i < lightSourcesLen; i++)
+    {
+        GLint lightPosLoc = shader.getUniformFromName("lights[" + std::to_string(i) + "].position");
+        glUniform3f(lightPosLoc, lightSources[i].position.x, lightSources[i].position.y, lightSources[i].position.z);
+
+        GLint lightColLoc = shader.getUniformFromName("lights[" + std::to_string(i) + "].color");
+        glUniform3f(lightColLoc, lightSources[i].color.x, lightSources[i].color.y, lightSources[i].color.z);
+
+        GLint lightIntLoc = shader.getUniformFromName("lights[" + std::to_string(i) + "].intensity");
+        glUniform1f(lightIntLoc, lightSources[i].intensity);
+    }
+}
+
+void passInMaterial(Material* material, Gloom::Shader &shader){
+    GLint albedoLocation = shader.getUniformFromName("albedo");
+    glUniform3f(albedoLocation, material->albedo.r, material->albedo.g, material->albedo.b);
+
+    GLint specularLocation = shader.getUniformFromName("specularFactor");
+    glUniform1f(specularLocation, material->specularFactor);
+
+    GLint roughnessLocation = shader.getUniformFromName("roughnessFactor");
+    glUniform1f(roughnessLocation, material->roughnessFactor);
+}
+
 void renderDiffuseNode(SceneNode* node, Gloom::Shader &shader, LightSource* lightSources) {
     GLint MLocation = shader.getUniformFromName("M");
     glUniformMatrix4fv(MLocation, 1, GL_FALSE, glm::value_ptr(node->currentTransformationMatrix));
@@ -15,32 +41,23 @@ void renderDiffuseNode(SceneNode* node, Gloom::Shader &shader, LightSource* ligh
             if(node->vertexArrayObjectID != -1) {
                 GLint hasTextureLocation = shader.getUniformFromName("hasTexture");
                 glUniform1i(hasTextureLocation, 0);
+
+                passInMaterial(node->material, shader);
+
                 glBindVertexArray(node->vertexArrayObjectID);
                 glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
             }
             break;
-        case POINT_LIGHT: {
-            int i = node->lightSourceID;
-            if (i != -1) {
-                GLint lightPosLoc = shader.getUniformFromName("lights[" + std::to_string(i) + "].position");
-                glUniform3f(lightPosLoc, lightSources[i].position.x, lightSources[i].position.y, lightSources[i].position.z);
-
-                GLint lightColLoc = shader.getUniformFromName("lights[" + std::to_string(i) + "].color");
-                glUniform3f(lightColLoc, lightSources[i].color.x, lightSources[i].color.y, lightSources[i].color.z);
-
-                GLint lightIntLoc = shader.getUniformFromName("lights[" + std::to_string(i) + "].intensity");
-                glUniform1f(lightIntLoc, lightSources[i].intensity);
-            }
-            break;
-        }
-        case SPOT_LIGHT: break;
         case GEOMETRY_TEXTURE: {
             if (node->vertexArrayObjectID != -1) {
                 GLint hasTextureLocation = shader.getUniformFromName("hasTexture");
                 glUniform1i(hasTextureLocation, 1);
 
+                passInMaterial(node->material, shader);
+
                 glBindTextureUnit(1, node->textureID);
                 glBindTextureUnit(2, node->normalTextureID);
+                glBindTextureUnit(3, node->roughnessTextureID);
 
                 glBindVertexArray(node->vertexArrayObjectID);
                 glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
@@ -77,21 +94,6 @@ void renderNode(SceneNode* node, Gloom::Shader &shader, LightSource* lightSource
                 glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
             }
             break;
-        case POINT_LIGHT: {
-            int i = node->lightSourceID;
-            if (i != -1) {
-                GLint lightPosLoc = shader.getUniformFromName("lights[" + std::to_string(i) + "].position");
-                glUniform3f(lightPosLoc, lightSources[i].position.x, lightSources[i].position.y, lightSources[i].position.z);
-
-                GLint lightColLoc = shader.getUniformFromName("lights[" + std::to_string(i) + "].color");
-                glUniform3f(lightColLoc, lightSources[i].color.x, lightSources[i].color.y, lightSources[i].color.z);
-
-                GLint lightIntLoc = shader.getUniformFromName("lights[" + std::to_string(i) + "].intensity");
-                glUniform1f(lightIntLoc, lightSources[i].intensity);
-            }
-            break;
-        }
-        case SPOT_LIGHT: break;
         case GEOMETRY_TEXTURE: {
             if (node->vertexArrayObjectID != -1) {
                 GLint hasTextureLocation = shader.getUniformFromName("hasTexture");

@@ -7,6 +7,7 @@ in layout(location = 3) mat3 TBN;
 
 layout(binding = 1) uniform sampler2D textureSample;
 layout(binding = 2) uniform sampler2D normalTextureSample;
+layout(binding = 3) uniform sampler2D roughnessTextureSample;
 
 struct LightSource {
     vec3 position;
@@ -17,9 +18,10 @@ struct LightSource {
 uniform LightSource[1] lights;
 uniform bool hasTexture;
 
-vec3 hardColor = vec3(0.06);
+uniform vec3 albedo;
+uniform float roughnessFactor;
+
 vec3 diffuse = vec3(0.0);
-vec3 specular = vec3(0.0);
 
 out vec4 color;
 
@@ -32,7 +34,7 @@ float lb = 0.001;
 float lc = 0.002;
 
 
-void calculateLights(vec3 norm) {
+void calculateLights(vec3 norm, float roughness) {
     
     for (int i = 0; i < 1; i++) {
         vec3 toLight = lights[i].position - position;
@@ -43,22 +45,33 @@ void calculateLights(vec3 norm) {
         
         // Diffuse
         float diffuseIntensity = max(dot(nToLight, norm), 0.0);
-        diffuse += diffuseIntensity * lights[i].intensity * lights[i].color;
+        diffuse += diffuseIntensity * lights[i].intensity * lights[i].color * (1.0 - roughness);
     }
 }
 
 void main()
 {
     vec3 norm = TBN * (texture(normalTextureSample, textureCoordinates).xyz * 2.0 - 1.0);
-    vec4 texture = texture(textureSample, textureCoordinates);
+    float roughnessTexture = texture(roughnessTextureSample, textureCoordinates).r;
+
+    float roughness = roughnessFactor;
+
+    if (roughnessFactor >= 1.0)
+    {
+        roughness = 0.95;
+    } else if (roughnessFactor <= 0) {
+        roughness = 0.05;
+    }
 
     if (hasTexture) {
-        calculateLights(norm);
-        vec3 lightColor = hardColor + diffuse + dither(textureCoordinates);
-        color = vec4(lightColor, 1.0);
+        vec4 texture = texture(textureSample, textureCoordinates);
+
+        calculateLights(norm, roughnessTexture);
+        vec3 lightColor = albedo + diffuse + dither(textureCoordinates);
+        color = vec4(lightColor, 1.0) * texture;
     } else {
-        calculateLights(normal);
-        vec3 lightColor = hardColor + diffuse + dither(textureCoordinates);
+        calculateLights(normal, roughness);
+        vec3 lightColor = albedo + diffuse + dither(textureCoordinates);
         color = vec4(lightColor, 1.0);
     }
 }
