@@ -130,10 +130,10 @@ void initLights() {
     light1->position            = {0.0, 0.0, 0.0};
     lightSources[0].color       = glm::vec3(1, 0.59, 0.3);
     lightSources[0].intensity   = 1.0;
-    lightSources[0].position    = {-1.0, -1.0, 1.0};
+    lightSources[0].position    = {-0.8, -0.2, -1.0};
     lightSources[0].lightType   = D_LIGHT;
 
-    glm::normalize(lightSources[0].position);
+    lightSources[0].position = glm::normalize(lightSources[0].position);
     light1->rotation            = lightSources[0].position;
 
     rootNode->children.push_back(light1);
@@ -167,7 +167,6 @@ void init3DNodes() {
     squareNode->material->specularFactor    = 0.001;
     squareNode->material->roughnessFactor   = 0.5;
     squareNode->material->subsurfaceTint    = {0.93, 0.4, 0.11};
-    squareNode->material->subsurfaceThickness = 0.75;
 
     initSubsurfaceBuffers(squareNode, windowWidth, windowHeight);
 
@@ -204,6 +203,9 @@ void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
 
     diffusePassShader = new Gloom::Shader();
     diffusePassShader->makeBasicShader("../res/shaders/simple.vert", "../res/shaders/diffusePass.frag");
+
+    thicknessShader = new Gloom::Shader();
+    thicknessShader->makeBasicShader("../res/shaders/simple.vert", "../res/shaders/thickness.frag");
 
     subsurfaceHorizontalShader  = new Gloom::Shader();
     subsurfaceHorizontalShader->attach("../res/shaders/subsurfaceHorizontal.comp");
@@ -248,7 +250,7 @@ void updateFrame(GLFWwindow* window) {
         mouseRightPressed = false;
     }
 
-    glm::mat4 projection = glm::perspective(glm::radians(80.0f), float(windowWidth) / float(windowHeight), 0.1f, 350.f);
+    glm::mat4 projection = glm::perspective(glm::radians(80.0f), float(windowWidth) / float(windowHeight), 0.1f, 1000.f);
     // Rotation Order: Y, X, Z
     glm::mat4 cameraTransform = glm::translate(-cameraPosition);
 
@@ -303,7 +305,7 @@ void renderFrame(GLFWwindow* window) {
     glViewport(0, 0, windowWidth, windowHeight);
 
     skyboxStage(rootNode, *skyboxShader, lightSources, VP, skyboxFBO);
-    subsurfaceStage(rootNode, *diffusePassShader, *subsurfaceHorizontalShader, *subsurfaceVerticalShader, lightSources, VP, cameraPosition, skyboxFBO);
+    subsurfaceStage(rootNode, *diffusePassShader, *thicknessShader, *subsurfaceHorizontalShader, *subsurfaceVerticalShader, lightSources, VP, cameraPosition, skyboxFBO);
     main3DStage(rootNode, *shader, lightSources, VP, cameraPosition, skyboxFBO);
     // main2DStage(*shader_2D, root2DNode, OrthoVP);
 }

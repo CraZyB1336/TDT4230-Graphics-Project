@@ -4,9 +4,9 @@ layout(local_size_x = 16, local_size_y = 16) in;
 
 layout(binding = 0, rgba32f) uniform image2D horizontalTexture;
 layout(binding = 1, rgba32f) uniform image2D subsurfacedTexture;
+layout(binding = 2, rgba32f) uniform image2D thicknessTexture;
 
 uniform vec3 ssTint;
-uniform float ssThick;
 
 // Construct a 1D Kernel with arbitrary weights
 // Weights are centered around index = 2
@@ -15,10 +15,10 @@ uniform float ssThick;
 // const float kernel[4] = float[](0.34, 0.18, 0.1, 0.05);
 
 // Gaussian blur
-// const float kernel[3] = float[](0.375, 0.25, 0.0625);
+const float kernel[3] = float[](0.375, 0.25, 0.0625);
 
 // Jorge Jimenez's SSSS kernel
-const float kernel[4] = float[](0.383, 0.242, 0.061, 0.006);
+// const float kernel[4] = float[](0.383, 0.242, 0.061, 0.006);
 
 // const float kernel[6] = float[](0.266, 0.213, 0.110, 0.036, 0.008, 0.002);
 
@@ -48,7 +48,7 @@ void main() {
         blurred += kernel[0 + i] * imageLoad(horizontalTexture, px + ivec2(i, 0)).rgb;
     }
 
-    vec3 finalColor = mix(orgCol, blurred, ssThick * 0.5);
+    vec3 finalColor = mix(orgCol, blurred * ssTint, imageLoad(thicknessTexture, px).r * 0.5);
 
-    imageStore(subsurfacedTexture, px, vec4(finalColor, 1.0));
+    imageStore(subsurfacedTexture, px, vec4(vec3(finalColor), 1.0));
 }

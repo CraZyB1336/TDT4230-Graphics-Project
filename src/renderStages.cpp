@@ -138,6 +138,7 @@ void renderSkyboxPass(SceneNode* skyboxNode, Gloom::Shader &shader, LightSource*
 
 void renderSubsurface(SceneNode* node,
                     Gloom::Shader &diffuseShader,
+                    Gloom::Shader &thicknessShader,
                     Gloom::Shader &horizontalShader,
                     Gloom::Shader &verticalShader,
                     LightSource* lightSources,
@@ -216,17 +217,53 @@ void renderSubsurface(SceneNode* node,
         }
     }
 
+    glBindFramebuffer(GL_FRAMEBUFFER, node->thicknessFBO);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // glEnable(GL_DEPTH_TEST);
+    // glDepthFunc(GL_GREATER);
+    // glCullFace(GL_FRONT);
+    // glEnable(GL_CULL_FACE);
+
+    // Thickness pass stage
+    thicknessShader.activate();
+
+    // Set common uniforms
+    VPLocation = thicknessShader.getUniformFromName("VP");
+    glUniformMatrix4fv(VPLocation, 1, GL_FALSE, glm::value_ptr(VP));
+    
+    MLocation = thicknessShader.getUniformFromName("M");
+    glUniformMatrix4fv(MLocation, 1, GL_FALSE, glm::value_ptr(node->currentTransformationMatrix));
+    
+    // Normal matrix
+    NMLocation = thicknessShader.getUniformFromName("NM");
+    glUniformMatrix3fv(NMLocation, 1, GL_FALSE, glm::value_ptr(NM));
+    
+    // Camera position for specular
+    camPosLocation = thicknessShader.getUniformFromName("cameraPosition");
+    glUniform3f(camPosLocation, cameraPosition.x, cameraPosition.y, cameraPosition.z);
+
+    GLint hasTextureLocation = diffuseShader.getUniformFromName("hasTexture");
+    if (node->nodeType == GEOMETRY_TEXTURE) {
+        glUniform1i(hasTextureLocation, 1);
+
+        glBindTextureUnit(2, node->normalTextureID);
+    } else {
+        glUniform1i(hasTextureLocation, 0);
+    }
+
+    glBindVertexArray(node->vertexArrayObjectID);
+    glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
+
     // Horizontal Pass stage
     horizontalShader.activate();
 
     GLint tintLoc = horizontalShader.getUniformFromName("ssTint");
     glUniform3f(tintLoc, node->material->subsurfaceTint.r, node->material->subsurfaceTint.g, node->material->subsurfaceTint.b);
 
-    GLint thickLoc = horizontalShader.getUniformFromName("ssThick");
-    glUniform1f(thickLoc, node->material->subsurfaceThickness);
-
     glBindImageTexture(0, node->diffuseTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
     glBindImageTexture(1, node->subsurfaceHorizontalTextureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glBindImageTexture(2, node->thicknessTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
 
     glDispatchCompute((windowWidth + 15) / 16, (windowHeight + 15) / 16, 1);
 
@@ -239,11 +276,9 @@ void renderSubsurface(SceneNode* node,
     tintLoc = verticalShader.getUniformFromName("ssTint");
     glUniform3f(tintLoc, node->material->subsurfaceTint.r, node->material->subsurfaceTint.g, node->material->subsurfaceTint.b);
 
-    thickLoc = verticalShader.getUniformFromName("ssThick");
-    glUniform1f(thickLoc, node->material->subsurfaceThickness);
-
     glBindImageTexture(0, node->subsurfaceHorizontalTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
     glBindImageTexture(1, node->subsurfaceFinalTextureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glBindImageTexture(2, node->thicknessTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
 
     glDispatchCompute((windowWidth + 15) / 16, (windowHeight + 15) / 16, 1);
 
@@ -256,6 +291,7 @@ void skyboxStage(SceneNode* skyboxNode, Gloom::Shader &shader, LightSource* ligh
 
 void subsurfaceStage(SceneNode* rootNode,
     Gloom::Shader &diffuseShader,
+    Gloom::Shader &thicknessShader,
     Gloom::Shader &horizontalShader,
     Gloom::Shader &verticalShader,
     LightSource* lightSources,
@@ -264,11 +300,11 @@ void subsurfaceStage(SceneNode* rootNode,
     unsigned int skyboxFBO)
 {
     if (rootNode->isSubsurface) {
-        renderSubsurface(rootNode, diffuseShader, horizontalShader, verticalShader, lightSources, VP, cameraPosition, skyboxFBO);
+        renderSubsurface(rootNode, diffuseShader, thicknessShader, horizontalShader, verticalShader, lightSources, VP, cameraPosition, skyboxFBO);
     }
 
     for (SceneNode* child : rootNode->children) {
-        subsurfaceStage(child, diffuseShader, horizontalShader, verticalShader, lightSources, VP, cameraPosition, skyboxFBO);
+        subsurfaceStage(child, diffuseShader, thicknessShader, horizontalShader, verticalShader, lightSources, VP, cameraPosition, skyboxFBO);
     }
 }
 

@@ -25,7 +25,6 @@ struct Material {
         roughnessFactor = 0.0; // Constrained between 0-1
         
         subsurfaceTint = {1.0, 1.0, 1.0};
-        subsurfaceThickness = 1;
     }
 
     glm::vec3 albedo;
@@ -34,5 +33,4 @@ struct Material {
 
     // Subsurface material things
     glm::vec3 subsurfaceTint;
-    float subsurfaceThickness;
 };

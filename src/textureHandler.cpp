@@ -43,8 +43,8 @@ std::vector<int> generateFramebuffer(int width, int height, bool hasDepth)
     unsigned int textureID = getEmptyFrameBufferTextureID(width, height);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureID, 0);
 
+    unsigned int depthBufferID;
     if (hasDepth) {
-        unsigned int depthBufferID;
         glGenTextures(1, &depthBufferID);
         glBindTexture(GL_TEXTURE_2D, depthBufferID);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
@@ -59,8 +59,10 @@ std::vector<int> generateFramebuffer(int width, int height, bool hasDepth)
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
         std::cout << "ERROR: Framebuffer is not complete! Status: " << status << std::endl;
-    } else {
+    } else if (!hasDepth) {
         std::cout << "Framebuffer created successfully. ID: " << bufferID << ", TextureID: " << textureID << std::endl;
+    } else {
+        std::cout << "Framebuffer created successfully. ID: " << bufferID << ", TextureID: " << textureID << ", DepthID: " << depthBufferID << std::endl;
     }
 
     std::vector<int> ret;
