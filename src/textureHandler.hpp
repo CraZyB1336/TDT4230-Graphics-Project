@@ -5,3 +5,4 @@
 
 unsigned int getTextureID(PNGImage &image);
 unsigned int getEmptyFrameBufferTextureID(int width, int height);
+std::vector<int> generateFramebuffer(int width, int height, bool hasDepth);

@@ -1,7 +1,19 @@
 #version 430 core
 
-in layout(location = 0) vec3 normal;
-in layout(location = 1) vec2 textureCoordinates;
 in layout(location = 2) vec3 position;
-in layout(location = 3) mat3 TBN;
 
+struct LightSource {
+    vec3 position;
+    vec3 color;
+    float intensity;
+    int type; // 0 = point, 1 = dir, 2 = spot (no support for spot)
+};
+
+uniform LightSource[1] lights;
+
+out vec4 color;
+
+void main()
+{
+    color = vec4(0.74, 1, 0.98, 1.0);
+}

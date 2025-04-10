@@ -7,9 +7,9 @@
 #include <string>
 
 // Constants
-const int         windowWidth     = 1366;
-const int         windowHeight    = 768;
-const std::string windowTitle     = "Glowbox";
+const int         windowWidth     = 1920;
+const int         windowHeight    = 1080;
+const std::string windowTitle     = "My awesomeness";
 const GLint       windowResizable = GL_FALSE;
 const int         windowSamples   = 4;
 

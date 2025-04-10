@@ -1,4 +1,6 @@
 #include "renderStages.hpp"
+#include "utilities/window.hpp"
+#include <iostream>
 
 void passInAllLights(LightSource* lightSources, int lightSourcesLen, Gloom::Shader &shader)
 {
@@ -12,6 +14,10 @@ void passInAllLights(LightSource* lightSources, int lightSourcesLen, Gloom::Shad
 
         GLint lightIntLoc = shader.getUniformFromName("lights[" + std::to_string(i) + "].intensity");
         glUniform1f(lightIntLoc, lightSources[i].intensity);
+
+        GLint lightTypeLoc = shader.getUniformFromName("lights[" + std::to_string(i) + "].type");
+        int type = lightSources[i].lightType == P_LIGHT ? 0 : lightSources[i].lightType == D_LIGHT ? 1 : 2;
+        glUniform1i(lightTypeLoc, type);
     }
 }
 
@@ -26,49 +32,9 @@ void passInMaterial(Material* material, Gloom::Shader &shader){
     glUniform1f(roughnessLocation, material->roughnessFactor);
 }
 
-void renderDiffuseNode(SceneNode* node, Gloom::Shader &shader, LightSource* lightSources) {
-    GLint MLocation = shader.getUniformFromName("M");
-    glUniformMatrix4fv(MLocation, 1, GL_FALSE, glm::value_ptr(node->currentTransformationMatrix));
-
-    GLint normalMatLoc = shader.getUniformFromName("NM");
-
-    glm::mat3 NM3 = glm::mat3(node->currentTransformationMatrix);
-    glm::mat3 NM = glm::transpose(glm::inverse(NM3));
-    glUniformMatrix3fv(normalMatLoc, 1, GL_FALSE, glm::value_ptr(NM));
-
-    switch(node->nodeType) {
-        case GEOMETRY:
-            if(node->vertexArrayObjectID != -1) {
-                GLint hasTextureLocation = shader.getUniformFromName("hasTexture");
-                glUniform1i(hasTextureLocation, 0);
-
-                passInMaterial(node->material, shader);
-
-                glBindVertexArray(node->vertexArrayObjectID);
-                glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
-            }
-            break;
-        case GEOMETRY_TEXTURE: {
-            if (node->vertexArrayObjectID != -1) {
-                GLint hasTextureLocation = shader.getUniformFromName("hasTexture");
-                glUniform1i(hasTextureLocation, 1);
-
-                passInMaterial(node->material, shader);
-
-                glBindTextureUnit(1, node->textureID);
-                glBindTextureUnit(2, node->normalTextureID);
-                glBindTextureUnit(3, node->roughnessTextureID);
-
-                glBindVertexArray(node->vertexArrayObjectID);
-                glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
-            }
-            break;
-        }
-        default: break;
-    }
-
-    for(SceneNode* child : node->children) {
-        renderDiffuseNode(child, shader, lightSources);
+void checkTextureValid(unsigned int textureID, const char* name) {
+    if (textureID == 0) {
+        std::cout << "WARNING: Invalid texture ID for " << name << std::endl;
     }
 }
 
@@ -85,11 +51,18 @@ void renderNode(SceneNode* node, Gloom::Shader &shader, LightSource* lightSource
     glm::mat3 NM = glm::transpose(glm::inverse(NM3));
     glUniformMatrix3fv(normalMatLoc, 1, GL_FALSE, glm::value_ptr(NM));
 
+    passInMaterial(node->material, shader);
+
+    if (node->isSubsurface) {
+        glBindImageTexture(0, node->subsurfaceFinalTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    }
+
     switch(node->nodeType) {
         case GEOMETRY:
             if(node->vertexArrayObjectID != -1) {    
                 GLint hasTextureLocation = shader.getUniformFromName("hasTexture");
                 glUniform1i(hasTextureLocation, 0);
+
                 glBindVertexArray(node->vertexArrayObjectID);
                 glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
             }
@@ -98,6 +71,8 @@ void renderNode(SceneNode* node, Gloom::Shader &shader, LightSource* lightSource
             if (node->vertexArrayObjectID != -1) {
                 GLint hasTextureLocation = shader.getUniformFromName("hasTexture");
                 glUniform1i(hasTextureLocation, 1);
+
+                passInMaterial(node->material, shader);
 
                 glBindTextureUnit(1, node->textureID);
                 glBindTextureUnit(2, node->normalTextureID);
@@ -138,60 +113,185 @@ void render2DNode(SceneNode* node, Gloom::Shader &shader) {
     }
 }
 
-void diffuseBufferStage(Gloom::Shader &shader, SceneNode* rootNode, LightSource* lightSources, glm::mat4 &VP, glm::vec3 &cameraPosition, unsigned int &diffuseFBO) {
-    glBindFramebuffer(GL_FRAMEBUFFER, diffuseFBO);
-    glEnable(GL_DEPTH_TEST);
+void renderSkyboxPass(SceneNode* skyboxNode, Gloom::Shader &shader, LightSource* lightSources, glm::mat4 &VP, unsigned int skyboxFBO) {
+    glBindFramebuffer(GL_FRAMEBUFFER, skyboxFBO);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
     shader.activate();
 
     GLint VPLocation = shader.getUniformFromName("VP");
     glUniformMatrix4fv(VPLocation, 1, GL_FALSE, glm::value_ptr(VP));
 
-    GLint CamPositionLocation = shader.getUniformFromName("cameraPosition");
-    glUniform3f(CamPositionLocation, cameraPosition.x, cameraPosition.y, cameraPosition.z);
+    passInAllLights(lightSources, 1, shader);
 
-    // Render
-    renderDiffuseNode(rootNode, shader, lightSources);
+    if (skyboxNode->nodeType == SKYBOX) {
+        glDepthMask(GL_FALSE);
+        glDepthFunc(GL_LEQUAL);
+
+        glBindVertexArray(skyboxNode->vertexArrayObjectID);
+        glDrawElements(GL_TRIANGLES, skyboxNode->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
+
+        glDepthMask(GL_TRUE);
+        glDepthFunc(GL_LESS);
+    }
 }
 
-void subsurfaceHorizontalStage(Gloom::Shader &shader, unsigned int &diffuseSubTextureID, unsigned int &horizontalTextureID, int windowWidth, int windowHeight) {
-    shader.activate();
+void renderSubsurface(SceneNode* node,
+                    Gloom::Shader &diffuseShader,
+                    Gloom::Shader &horizontalShader,
+                    Gloom::Shader &verticalShader,
+                    LightSource* lightSources,
+                    glm::mat4 &VP,
+                    glm::vec3 &cameraPosition,
+                    unsigned int skyboxFBO)
+{
+    if (node->isSubsurface == false) return;
 
-    glBindImageTexture(0, diffuseSubTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
-    glBindImageTexture(1, horizontalTextureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    checkTextureValid(node->diffuseTextureID, "diffuseTexture");
+    checkTextureValid(node->subsurfaceHorizontalTextureID, "horiTexture");
+    checkTextureValid(node->subsurfaceFinalTextureID, "finalTexture");
 
-    // Send out the compute shader! Angarde!
-    glDispatchCompute(windowWidth / 16, windowHeight / 16, 1);
+    // First we do the diffuse pass.
+    // We have to copy the skyboxFBO to the diffuseFBO as the initial color.
+    // Necessary for compute shaders image processing.
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, skyboxFBO);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, node->diffuseFBO);
+    glBlitFramebuffer(0, 0, windowWidth, windowHeight, 0, 0, windowWidth, windowHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
-    // Ensure the second pass waits for this pass to finish.
+    glBindFramebuffer(GL_FRAMEBUFFER, node->diffuseFBO);
+
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    diffuseShader.activate();
+
+    // Set common uniforms
+    GLint VPLocation = diffuseShader.getUniformFromName("VP");
+    glUniformMatrix4fv(VPLocation, 1, GL_FALSE, glm::value_ptr(VP));
+    
+    GLint MLocation = diffuseShader.getUniformFromName("M");
+    glUniformMatrix4fv(MLocation, 1, GL_FALSE, glm::value_ptr(node->currentTransformationMatrix));
+    
+    // Normal matrix
+    glm::mat3 NM = glm::transpose(glm::inverse(glm::mat3(node->currentTransformationMatrix)));
+    GLint NMLocation = diffuseShader.getUniformFromName("NM");
+    glUniformMatrix3fv(NMLocation, 1, GL_FALSE, glm::value_ptr(NM));
+    
+    // Camera position for specular
+    GLint camPosLocation = diffuseShader.getUniformFromName("cameraPosition");
+    glUniform3f(camPosLocation, cameraPosition.x, cameraPosition.y, cameraPosition.z);
+
+    // Pass material properties
+    passInMaterial(node->material, diffuseShader);
+    
+    // Pass light information
+    passInAllLights(lightSources, 1, diffuseShader);
+
+    switch (node->nodeType) {
+        case GEOMETRY: {
+            if(node->vertexArrayObjectID != -1) {
+                GLint hasTextureLocation = diffuseShader.getUniformFromName("hasTexture");
+                glUniform1i(hasTextureLocation, 0);
+
+                glBindVertexArray(node->vertexArrayObjectID);
+                glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
+            }
+            break;
+        }
+        case GEOMETRY_TEXTURE: {
+            if(node->vertexArrayObjectID != -1) {
+                GLint hasTextureLocation = diffuseShader.getUniformFromName("hasTexture");
+                glUniform1i(hasTextureLocation, 0);
+
+                glBindTextureUnit(1, node->textureID);
+                glBindTextureUnit(2, node->normalTextureID);
+                glBindTextureUnit(3, node->roughnessTextureID);
+
+                glBindVertexArray(node->vertexArrayObjectID);
+                glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
+            }
+            break;
+        }
+        default: {
+            return;
+        }
+    }
+
+    // Horizontal Pass stage
+    horizontalShader.activate();
+
+    GLint tintLoc = horizontalShader.getUniformFromName("ssTint");
+    glUniform3f(tintLoc, node->material->subsurfaceTint.r, node->material->subsurfaceTint.g, node->material->subsurfaceTint.b);
+
+    GLint thickLoc = horizontalShader.getUniformFromName("ssThick");
+    glUniform1f(thickLoc, node->material->subsurfaceThickness);
+
+    glBindImageTexture(0, node->diffuseTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glBindImageTexture(1, node->subsurfaceHorizontalTextureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+    glDispatchCompute((windowWidth + 15) / 16, (windowHeight + 15) / 16, 1);
+
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+
+    // Vertical pass stage
+    verticalShader.activate();
+
+    GLint tintLoc = verticalShader.getUniformFromName("ssTint");
+    glUniform3f(tintLoc, node->material->subsurfaceTint.r, node->material->subsurfaceTint.g, node->material->subsurfaceTint.b);
+
+    GLint thickLoc = verticalShader.getUniformFromName("ssThick");
+    glUniform1f(thickLoc, node->material->subsurfaceThickness);
+
+    glBindImageTexture(0, node->subsurfaceHorizontalTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glBindImageTexture(1, node->subsurfaceFinalTextureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+    glDispatchCompute((windowWidth + 15) / 16, (windowHeight + 15) / 16, 1);
+
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
-void subsurfaceVerticalStage(Gloom::Shader &shader, unsigned int &horizontalTextureID, unsigned int &subsurfacedTextureID, int windowWidth, int windowHeight) {
-    shader.activate();
-
-    glBindImageTexture(0, horizontalTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
-    glBindImageTexture(1, subsurfacedTextureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-
-    // Send out the compute shader! Angarde!
-    glDispatchCompute(windowWidth / 16, windowHeight / 16, 1);
-
-    // Ensure the second pass waits for this pass to finish.
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+void skyboxStage(SceneNode* skyboxNode, Gloom::Shader &shader, LightSource* lightSources, glm::mat4 &VP, unsigned int skyboxFBO) {
+    renderSkyboxPass(skyboxNode, shader, lightSources, VP, skyboxFBO);
 }
 
-void main3DStage(Gloom::Shader &shader, SceneNode* rootNode, unsigned int &diffuseTextureID, LightSource* lightSources, glm::mat4 &VP, glm::vec3 &cameraPosition) {
-    // Activate Depth test (?)
+void subsurfaceStage(SceneNode* rootNode,
+    Gloom::Shader &diffuseShader,
+    Gloom::Shader &horizontalShader,
+    Gloom::Shader &verticalShader,
+    LightSource* lightSources,
+    glm::mat4 &VP,
+    glm::vec3 &cameraPosition,
+    unsigned int skyboxFBO)
+{
+    if (rootNode->isSubsurface) {
+        renderSubsurface(rootNode, diffuseShader, horizontalShader, verticalShader, lightSources, VP, cameraPosition, skyboxFBO);
+    }
+
+    for (SceneNode* child : rootNode->children) {
+        subsurfaceStage(child, diffuseShader, horizontalShader, verticalShader, lightSources, VP, cameraPosition, skyboxFBO);
+    }
+}
+
+void main3DStage(SceneNode* rootNode, Gloom::Shader &shader, LightSource* lightSources, glm::mat4 &VP, glm::vec3 &cameraPosition, unsigned int skyboxFBO) {
+
+    // Some processing before activating main pipeline.
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    shader.activate();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glBindImageTexture(0, diffuseTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, skyboxFBO);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBlitFramebuffer(0, 0, windowWidth, windowHeight, 0, 0, windowWidth, windowHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    
+    shader.activate();
 
     GLint VPLocation = shader.getUniformFromName("VP");
     glUniformMatrix4fv(VPLocation, 1, GL_FALSE, glm::value_ptr(VP));
 
     GLint CamPositionLocation = shader.getUniformFromName("cameraPosition");
     glUniform3f(CamPositionLocation, cameraPosition.x, cameraPosition.y, cameraPosition.z);
+
+    passInAllLights(lightSources, 1, shader);
 
     // Render
     renderNode(rootNode, shader, lightSources);

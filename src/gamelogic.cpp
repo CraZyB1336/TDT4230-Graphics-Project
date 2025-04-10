@@ -38,6 +38,7 @@ Gloom::Shader* shader_2D;
 Gloom::Shader* diffusePassShader;
 Gloom::Shader* subsurfaceHorizontalShader;
 Gloom::Shader* subsurfaceVerticalShader;
+Gloom::Shader* skyboxShader;
 sf::Sound* sound;
 
 CommandLineOptions options;
@@ -83,44 +84,52 @@ SceneNode* squareNode;
 // SceneNode* skyBoxNode;
 
 // 3D Rendering Pipeline
+unsigned int skyboxTextureID;
 unsigned int diffuseSubTextureID;
 unsigned int subsurfacedHorizontalTextureID;
 unsigned int subsurfacedFinalTextureID;
+unsigned int skyboxFBO;
 unsigned int diffuseFBO;
 
 // 2D
 SceneNode* root2DNode;
 
-void initSubsurfacePipeline() {
-    // Get empty texture ID for the diffuse subsurface texture pass.
-    glGenFramebuffers(1, &diffuseFBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, diffuseFBO);
-    diffuseSubTextureID             = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, diffuseSubTextureID, 0);
+void initSubsurfaceBuffers(SceneNode* node, int windowWidth, int windowHeight) {
+    std::vector<int> diffuseBufferIDS = generateFramebuffer(windowWidth, windowHeight, true);
+    node->diffuseFBO = diffuseBufferIDS[0];
+    node->diffuseTextureID = diffuseBufferIDS[1];
 
-    // Attach a depth buffer to the FBO
-    unsigned int depthBuffer;
-    glGenTextures(1, &depthBuffer);
-    glBindTexture(GL_TEXTURE_2D, depthBuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, windowWidth, windowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthBuffer, 0);
+    node->subsurfaceHorizontalTextureID = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
+    node->subsurfaceFinalTextureID = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
 
-    subsurfacedHorizontalTextureID  = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
-    subsurfacedFinalTextureID       = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
+    glBindFramebuffer(GL_FRAMEBUFFER, node->diffuseFBO);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        std::cout << "Error: Diffuse framebuffer is not complete!" << std::endl;
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void initSkyboxBuffer() {
+    std::vector<int> skyboxIDS = generateFramebuffer(windowWidth, windowHeight, true);
+
+    skyboxFBO       = skyboxIDS[0];
+    skyboxTextureID = skyboxIDS[1];
 }
 
 void initLights() {
     SceneNode* light1 = createSceneNode();
 
     light1->lightSourceID       = 0;
-    light1->nodeType            = POINT_LIGHT;
-    light1->position            = {-70.0, 70.0, 40.0};
+    light1->nodeType            = DIR_LIGHT;
+    light1->position            = {0.0, 0.0, 0.0};
     lightSources[0].color       = glm::vec3(1, 0.59, 0.3);
-    lightSources[0].intensity   = 2.0;
+    lightSources[0].intensity   = 1.0;
+    lightSources[0].position    = {-1.0, -1.0, 1.0};
+    lightSources[0].lightType   = D_LIGHT;
+
+    glm::normalize(lightSources[0].position);
+    light1->rotation            = lightSources[0].position;
 
     rootNode->children.push_back(light1);
 }
@@ -139,6 +148,7 @@ void init3DNodes() {
 
     // Mesh squareMesh = cube({20.0, 20.0, 20.0}, {15.0, 15.0}, true, false, {1.0, 1.0, 1.0});
     // Mesh squareMesh = generateSphere(15.0, 40, 40, {2.0, 2.0});
+
     Mesh squareMesh = loadOBJFile("../res/models/hand.obj");
     std::vector<unsigned int> squareVAOIBO = generateBuffer(squareMesh);
     squareNode = createSceneNode();
@@ -146,19 +156,21 @@ void init3DNodes() {
     squareNode->vertexArrayObjectID = squareVAOIBO[0];
     squareNode->indexArrayObjectID  = squareVAOIBO[1];
     squareNode->VAOIndexCount       = squareMesh.indices.size();
-    // squareNode->textureID           = brickTextureID;
-    // squareNode->normalTextureID     = brickTextureNRMID;
-    // squareNode->roughnessTextureID  = brickTextureRGHID;
+
     squareNode->isSubsurface                = true;
-    squareNode->material->albedo            = {0.85, 0.63, 0.29};
-    squareNode->material->specularFactor    = 0.7;
+    squareNode->material->albedo            = {0.81, 0.72, 0.58};
+    squareNode->material->specularFactor    = 0.001;
     squareNode->material->roughnessFactor   = 0.5;
+    squareNode->material->subsurfaceTint    = {0.93, 0.4, 0.11};
+    squareNode->material->subsurfaceThickness = 0.75;
+
+    initSubsurfaceBuffers(squareNode, windowWidth, windowHeight);
 
     rootNode->children.push_back(squareNode);
 
-    Mesh skyBox = cube({300.0, 300.0, 300.0}, {30.0, 30.0}, true, true, {1.0, 1.0, 1.0});
+    Mesh skyBox = cube({450.0, 450.0, 450.0}, {1.0, 1.0}, true, true, {1.0, 1.0, 1.0});
     std::vector<unsigned int> skyboxVAOIBO = generateBuffer(skyBox);
-    rootNode->nodeType              = GEOMETRY;
+    rootNode->nodeType              = SKYBOX;
     rootNode->vertexArrayObjectID   = skyboxVAOIBO[0];
     rootNode->indexArrayObjectID    = skyboxVAOIBO[1];
     rootNode->VAOIndexCount         = skyBox.indices.size();
@@ -182,6 +194,9 @@ void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
     glViewport(0, 0, windowWidth, windowHeight);
 
     // Shaders
+    skyboxShader = new Gloom::Shader();
+    skyboxShader->makeBasicShader("../res/shaders/skybox.vert", "../res/shaders/skybox.frag");
+
     diffusePassShader = new Gloom::Shader();
     diffusePassShader->makeBasicShader("../res/shaders/simple.vert", "../res/shaders/diffusePass.frag");
 
@@ -201,7 +216,7 @@ void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
     
     shader->activate();
 
-    initSubsurfacePipeline();
+    initSkyboxBuffer();
     init3DNodes();
     init2DNodes();
 
@@ -262,6 +277,13 @@ void updateNodeTransformations(SceneNode* node, glm::mat4 transformationThusFar)
             break;
         }
         case SPOT_LIGHT: break;
+        case DIR_LIGHT: {
+            if (node->lightSourceID != -1) {
+                glm::mat3 rotationMatrix = glm::mat3(node->currentTransformationMatrix);
+                lightSources[node->lightSourceID].position = rotationMatrix * glm::vec3(0.0, 0.0, -1.0);
+            }
+            break;
+        }
         default: break;
     }
 
@@ -275,14 +297,8 @@ void renderFrame(GLFWwindow* window) {
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
     glViewport(0, 0, windowWidth, windowHeight);
 
-    passInAllLights(lightSources, 1, *diffusePassShader);
-    diffuseBufferStage(*diffusePassShader, rootNode, lightSources, VP, cameraPosition, diffuseFBO);
-
-    subsurfaceHorizontalStage(*subsurfaceHorizontalShader, diffuseSubTextureID, subsurfacedHorizontalTextureID, windowWidth, windowHeight);
-    subsurfaceVerticalStage(*subsurfaceVerticalShader, subsurfacedHorizontalTextureID, subsurfacedFinalTextureID, windowWidth, windowHeight);
-
-    passInAllLights(lightSources, 1, *shader);
-    main3DStage(*shader, rootNode, subsurfacedFinalTextureID, lightSources, VP, cameraPosition);
-    
+    skyboxStage(rootNode, *skyboxShader, lightSources, VP, skyboxFBO);
+    subsurfaceStage(rootNode, *diffusePassShader, *subsurfaceHorizontalShader, *subsurfaceVerticalShader, lightSources, VP, cameraPosition, skyboxFBO);
+    main3DStage(rootNode, *shader, lightSources, VP, cameraPosition, skyboxFBO);
     // main2DStage(*shader_2D, root2DNode, OrthoVP);
 }

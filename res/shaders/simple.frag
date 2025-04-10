@@ -14,6 +14,7 @@ struct LightSource {
     vec3 position;
     vec3 color;
     float intensity;
+    int type; // 0 = point, 1 = dir, 2 = spot (no support for spot)
 };
 
 uniform LightSource[1] lights;
@@ -44,7 +45,7 @@ float lc = 0.002;
 
 void calculateDiffusion(vec3 norm, float roughness) {
     for (int i = 0; i < 1; i++) {
-        vec3 toLight = lights[i].position - position;
+        vec3 toLight = lights[i].type == 0 ? lights[i].position - position : -lights[i].position;
         vec3 nToLight = normalize(toLight);
 
         float lightDistance = length(toLight);
@@ -60,7 +61,7 @@ void calculateSpecular(vec3 norm, float roughness) {
     vec3 toCam = normalize(cameraPosition - position);
     
     for (int i = 0; i < 1; i++) {
-        vec3 toLight = lights[i].position - position;
+        vec3 toLight = lights[i].type == 0 ? lights[i].position - position : -lights[i].position;
         vec3 nToLight = normalize(toLight);
 
         float lightDistance = length(toLight);
@@ -100,6 +101,7 @@ void main()
 
         vec3 lightColor = diffuseTexture.rgb + specular + dither(textureCoordinates);
         color = vec4(lightColor, 1.0);
+        // color = vec4(0.0, 1.0, 0.0, 1.0);
     } else {
         vec4 brickTexture = texture(textureSample, textureCoordinates);
 
@@ -114,5 +116,6 @@ void main()
             vec3 lightColor = albedo + diffuse + specular + dither(textureCoordinates);
             color = vec4(lightColor, 1.0);
         }
+        // color = vec4(1.0, 0.0, 0.0, 1.0);
     }
 }
