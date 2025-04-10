@@ -236,10 +236,10 @@ void renderSubsurface(SceneNode* node,
     // Vertical pass stage
     verticalShader.activate();
 
-    GLint tintLoc = verticalShader.getUniformFromName("ssTint");
+    tintLoc = verticalShader.getUniformFromName("ssTint");
     glUniform3f(tintLoc, node->material->subsurfaceTint.r, node->material->subsurfaceTint.g, node->material->subsurfaceTint.b);
 
-    GLint thickLoc = verticalShader.getUniformFromName("ssThick");
+    thickLoc = verticalShader.getUniformFromName("ssThick");
     glUniform1f(thickLoc, node->material->subsurfaceThickness);
 
     glBindImageTexture(0, node->subsurfaceHorizontalTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
@@ -282,7 +282,7 @@ void main3DStage(SceneNode* rootNode, Gloom::Shader &shader, LightSource* lightS
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
     glBlitFramebuffer(0, 0, windowWidth, windowHeight, 0, 0, windowWidth, windowHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    
+
     shader.activate();
 
     GLint VPLocation = shader.getUniformFromName("VP");

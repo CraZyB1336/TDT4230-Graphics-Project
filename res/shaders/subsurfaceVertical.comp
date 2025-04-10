@@ -37,8 +37,8 @@ const float kernel[4] = float[](0.383, 0.242, 0.061, 0.006);
 void main() {
     ivec2 px = ivec2(gl_GlobalInvocationID.xy);
 
-    vec3 orgCol = imageLoad(diffuseTexture, px).rgb;
-    vec3 blurred = kernel[0] * imageLoad(diffuseTexture, px).rgb;
+    vec3 orgCol = imageLoad(horizontalTexture, px).rgb;
+    vec3 blurred = kernel[0] * imageLoad(horizontalTexture, px).rgb;
 
     for (int i = 1; i < kernel.length(); i++) {
         // Left
@@ -48,7 +48,7 @@ void main() {
         blurred += kernel[0 + i] * imageLoad(horizontalTexture, px + ivec2(i, 0)).rgb;
     }
 
-    
+    vec3 finalColor = mix(orgCol, blurred, ssThick * 0.5);
 
-    imageStore(subsurfacedTexture, px, vec4(color, 1.0));
+    imageStore(subsurfacedTexture, px, vec4(finalColor, 1.0));
 }

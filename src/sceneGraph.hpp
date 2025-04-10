@@ -38,9 +38,12 @@ struct SceneNode {
 		material 			= new Material();
 
 		diffuseFBO			= -1;
+		thicknessFBO		= -1;
+
 		subsurfaceHorizontalTextureID 	= -1;
-		subsurfaceFinalTextureID 	= -1;
+		subsurfaceFinalTextureID 		= -1;
 		diffuseTextureID				= -1;
+		thicknessTextureID				= -1;
 
         nodeType = GEOMETRY;
 	}
@@ -74,9 +77,12 @@ struct SceneNode {
 	Material* material;
 
 	unsigned int diffuseFBO;
+	unsigned int thicknessFBO;
+
 	unsigned int subsurfaceHorizontalTextureID;
 	unsigned int subsurfaceFinalTextureID;
 	unsigned int diffuseTextureID;
+	unsigned int thicknessTextureID;
 
 	// Node type is used to determine how to handle the contents of a node
 	SceneNodeType nodeType;

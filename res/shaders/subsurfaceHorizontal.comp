@@ -46,7 +46,7 @@ void main() {
         blurred += kernel[0 + i] * imageLoad(diffuseTexture, px + ivec2(i, 0)).rgb;
     }
 
-    vec3 finalColor = mix(orgCol, blurred * ssTint, ssThick);
+    vec3 finalColor = mix(orgCol, blurred * ssTint, ssThick * 0.5);
 
     imageStore(horizontalTexture, px, vec4(finalColor, 1.0));
 }

@@ -39,6 +39,7 @@ Gloom::Shader* diffusePassShader;
 Gloom::Shader* subsurfaceHorizontalShader;
 Gloom::Shader* subsurfaceVerticalShader;
 Gloom::Shader* skyboxShader;
+Gloom::Shader* thicknessShader;
 sf::Sound* sound;
 
 CommandLineOptions options;
@@ -99,15 +100,19 @@ void initSubsurfaceBuffers(SceneNode* node, int windowWidth, int windowHeight) {
     node->diffuseFBO = diffuseBufferIDS[0];
     node->diffuseTextureID = diffuseBufferIDS[1];
 
-    node->subsurfaceHorizontalTextureID = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
-    node->subsurfaceFinalTextureID = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
-
     glBindFramebuffer(GL_FRAMEBUFFER, node->diffuseFBO);
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         std::cout << "Error: Diffuse framebuffer is not complete!" << std::endl;
     }
 
+    std::vector<int> thicknessBufferIDS = generateFramebuffer(windowWidth, windowHeight, true);
+    node->thicknessFBO = thicknessBufferIDS[0];
+    node->thicknessTextureID = thicknessBufferIDS[1];
+    
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    node->subsurfaceHorizontalTextureID = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
+    node->subsurfaceFinalTextureID = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
 }
 
 void initSkyboxBuffer() {
