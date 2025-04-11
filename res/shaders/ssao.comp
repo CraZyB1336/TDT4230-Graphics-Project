@@ -1,0 +1,63 @@
+#version 430 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(binding = 0, rgba16f) uniform image2D gPosition;
+layout(binding = 1, rgba16f) uniform image2D gNormal;
+layout(binding = 2) uniform sampler2D texNoise;
+
+layout(binding = 3, r32f) uniform image2D ssaoResult;
+
+
+uniform vec3 samples[64];
+uniform int kernelSize = 64;
+uniform float radius = 0.4;
+uniform float bias = -0.05;
+uniform mat4 projection;
+
+void main() {
+    ivec2 px = ivec2(gl_GlobalInvocationID.xy);
+
+    ivec2 imgSize = imageSize(gPosition);
+
+    if (px.x >= imgSize.x || px.y >= imgSize.y) {
+        return;
+    }
+
+    vec3 fragPos = imageLoad(gPosition, px).xyz;
+    vec3 normal = normalize(imageLoad(gNormal, px).rgb);
+
+    vec2 noiseScale = vec2(imgSize) / 4.0;
+    vec2 noiseUV = vec2(px) / vec2(imgSize);
+    vec3 randomVec = texture(texNoise, noiseUV * noiseScale).xyz;
+
+    vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
+    vec3 bitangent = cross(normal, tangent);
+    mat3 TBN = mat3(tangent, bitangent, normal);
+
+    float occlusion = 0.0;
+    for (int i = 0; i < kernelSize; i++) {
+        vec3 samplePos = TBN * samples[i];
+        samplePos = fragPos + samplePos * radius;
+
+        vec4 offset = projection * vec4(samplePos, 1.0);
+        offset.xyz /= offset.w;
+        offset.xyz = offset.xyz * 0.5 + 0.5;
+
+        ivec2 sampleCoord = ivec2(offset.xy * imgSize);
+
+        if (sampleCoord.x >= 0 && sampleCoord.x < imgSize.x &&
+            sampleCoord.y >= 0 && sampleCoord.y < imgSize.y) {
+            
+            vec4 tmp = imageLoad(gPosition, sampleCoord);
+            float sampleDepth = tmp.z;
+            float rangeCheck = smoothstep(0.0, 1.0, radius / (abs(fragPos.z - sampleDepth) + 0.001));
+            
+            occlusion += (sampleDepth <= samplePos.z + bias ? 1.0 : 0.0) * rangeCheck;
+        }
+    }
+
+    occlusion = 1.0 - (occlusion / kernelSize);
+
+    imageStore(ssaoResult, px, vec4(occlusion, 0.0, 0.0, 0.0));
+}

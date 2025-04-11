@@ -9,6 +9,7 @@ layout(binding = 0, rgba32f) uniform image2D diffuseTextureSample;
 layout(binding = 1) uniform sampler2D textureSample;
 layout(binding = 2) uniform sampler2D normalTextureSample;
 layout(binding = 3) uniform sampler2D roughnessTextureSample;
+// layout(binding = 4) uniform sampler2D ssaoTexture;
 
 struct LightSource {
     vec3 position;
@@ -44,6 +45,8 @@ float lc = 0.002;
 // }
 
 void calculateDiffusion(vec3 norm, float roughness) {
+    // float aoFactor = texture(ssaoTexture, gl_FragCoord.xy / vec2(textureSize(ssaoTexture, 0))).r;
+
     for (int i = 0; i < 1; i++) {
         vec3 toLight = lights[i].type == 0 ? lights[i].position - position : -lights[i].position;
         vec3 nToLight = normalize(toLight);
@@ -59,7 +62,9 @@ void calculateDiffusion(vec3 norm, float roughness) {
 
 void calculateSpecular(vec3 norm, float roughness) {
     vec3 toCam = normalize(cameraPosition - position);
-    
+
+    // specular = albedo * 0.2;
+
     for (int i = 0; i < 1; i++) {
         vec3 toLight = lights[i].type == 0 ? lights[i].position - position : -lights[i].position;
         vec3 nToLight = normalize(toLight);
@@ -118,4 +123,6 @@ void main()
         }
         // color = vec4(1.0, 0.0, 0.0, 1.0);
     }
+
+    // color = vec4(vec3(aoFactor), 1.0);
 }

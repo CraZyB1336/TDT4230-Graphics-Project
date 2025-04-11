@@ -44,6 +44,7 @@ struct SceneNode {
 		subsurfaceFinalTextureID 		= -1;
 		diffuseTextureID				= -1;
 		thicknessTextureID				= -1;
+		thicknessBiasAlbedoTextureID	= -1;
 
         nodeType = GEOMETRY;
 	}
@@ -83,6 +84,7 @@ struct SceneNode {
 	unsigned int subsurfaceFinalTextureID;
 	unsigned int diffuseTextureID;
 	unsigned int thicknessTextureID;
+	unsigned int thicknessBiasAlbedoTextureID;
 
 	// Node type is used to determine how to handle the contents of a node
 	SceneNodeType nodeType;

@@ -139,6 +139,7 @@ void renderSkyboxPass(SceneNode* skyboxNode, Gloom::Shader &shader, LightSource*
 void renderSubsurface(SceneNode* node,
                     Gloom::Shader &diffuseShader,
                     Gloom::Shader &thicknessShader,
+                    Gloom::Shader &thicknessBiasShader,
                     Gloom::Shader &horizontalShader,
                     Gloom::Shader &verticalShader,
                     LightSource* lightSources,
@@ -201,7 +202,7 @@ void renderSubsurface(SceneNode* node,
         case GEOMETRY_TEXTURE: {
             if(node->vertexArrayObjectID != -1) {
                 GLint hasTextureLocation = diffuseShader.getUniformFromName("hasTexture");
-                glUniform1i(hasTextureLocation, 0);
+                glUniform1i(hasTextureLocation, 1);
 
                 glBindTextureUnit(1, node->textureID);
                 glBindTextureUnit(2, node->normalTextureID);
@@ -219,11 +220,6 @@ void renderSubsurface(SceneNode* node,
 
     glBindFramebuffer(GL_FRAMEBUFFER, node->thicknessFBO);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    // glEnable(GL_DEPTH_TEST);
-    // glDepthFunc(GL_GREATER);
-    // glCullFace(GL_FRONT);
-    // glEnable(GL_CULL_FACE);
 
     // Thickness pass stage
     thicknessShader.activate();
@@ -252,18 +248,36 @@ void renderSubsurface(SceneNode* node,
         glUniform1i(hasTextureLocation, 0);
     }
 
+    // Pass light information
+    passInAllLights(lightSources, 1, diffuseShader);
+
+    GLint baseThickLoc = thicknessShader.getUniformFromName("baseThickness");
+    glUniform1f(baseThickLoc, node->material->baseThickness);
+
+    GLint materialTypeLoc = thicknessShader.getUniformFromName("materialType");
+    glUniform1i(materialTypeLoc, node->material->materialType);
+
     glBindVertexArray(node->vertexArrayObjectID);
     glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
+
+    thicknessBiasShader.activate();
+
+    GLint tintLoc = thicknessBiasShader.getUniformFromName("ssTint");
+    glUniform3f(tintLoc, node->material->subsurfaceTint.r, node->material->subsurfaceTint.g, node->material->subsurfaceTint.b);
+
+    glBindImageTexture(0, node->diffuseTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glBindImageTexture(1, node->thicknessTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
+    glBindImageTexture(2, node->thicknessBiasAlbedoTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+
+    glDispatchCompute((windowWidth + 15) / 16, (windowHeight + 15) / 16, 1);
+
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
     // Horizontal Pass stage
     horizontalShader.activate();
 
-    GLint tintLoc = horizontalShader.getUniformFromName("ssTint");
-    glUniform3f(tintLoc, node->material->subsurfaceTint.r, node->material->subsurfaceTint.g, node->material->subsurfaceTint.b);
-
-    glBindImageTexture(0, node->diffuseTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glBindImageTexture(0, node->thicknessBiasAlbedoTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
     glBindImageTexture(1, node->subsurfaceHorizontalTextureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-    glBindImageTexture(2, node->thicknessTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
 
     glDispatchCompute((windowWidth + 15) / 16, (windowHeight + 15) / 16, 1);
 
@@ -273,16 +287,52 @@ void renderSubsurface(SceneNode* node,
     // Vertical pass stage
     verticalShader.activate();
 
-    tintLoc = verticalShader.getUniformFromName("ssTint");
-    glUniform3f(tintLoc, node->material->subsurfaceTint.r, node->material->subsurfaceTint.g, node->material->subsurfaceTint.b);
-
     glBindImageTexture(0, node->subsurfaceHorizontalTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
     glBindImageTexture(1, node->subsurfaceFinalTextureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-    glBindImageTexture(2, node->thicknessTextureID, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
 
     glDispatchCompute((windowWidth + 15) / 16, (windowHeight + 15) / 16, 1);
 
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+}
+
+void renderGbuffer(SceneNode* node, Gloom::Shader &shader, glm::mat4 &V) {
+    GLint MLocation = shader.getUniformFromName("M");
+    glUniformMatrix4fv(MLocation, 1, GL_FALSE, glm::value_ptr(node->currentTransformationMatrix));
+
+    GLint normalMatLoc = shader.getUniformFromName("NM");
+
+    glm::mat3 NM3 = glm::mat3(V * node->currentTransformationMatrix);
+    glm::mat3 NM = glm::transpose(glm::inverse(NM3));
+    glUniformMatrix3fv(normalMatLoc, 1, GL_FALSE, glm::value_ptr(NM));
+
+    switch(node->nodeType) {
+        case GEOMETRY:
+            if(node->vertexArrayObjectID != -1) {    
+                GLint hasTextureLocation = shader.getUniformFromName("hasTexture");
+                glUniform1i(hasTextureLocation, 0);
+
+                glBindVertexArray(node->vertexArrayObjectID);
+                glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
+            }
+            break;
+        case GEOMETRY_TEXTURE: {
+            if (node->vertexArrayObjectID != -1) {
+                GLint hasTextureLocation = shader.getUniformFromName("hasTexture");
+                glUniform1i(hasTextureLocation, 1);
+
+                glBindTextureUnit(2, node->normalTextureID);
+
+                glBindVertexArray(node->vertexArrayObjectID);
+                glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
+            }
+            break;
+        }
+        default: break;
+    }
+
+    for(SceneNode* child : node->children) {
+        renderGbuffer(child, shader, V);
+    }
 }
 
 void skyboxStage(SceneNode* skyboxNode, Gloom::Shader &shader, LightSource* lightSources, glm::mat4 &VP, unsigned int skyboxFBO) {
@@ -292,6 +342,7 @@ void skyboxStage(SceneNode* skyboxNode, Gloom::Shader &shader, LightSource* ligh
 void subsurfaceStage(SceneNode* rootNode,
     Gloom::Shader &diffuseShader,
     Gloom::Shader &thicknessShader,
+    Gloom::Shader &thicknessBiasShader,
     Gloom::Shader &horizontalShader,
     Gloom::Shader &verticalShader,
     LightSource* lightSources,
@@ -300,11 +351,11 @@ void subsurfaceStage(SceneNode* rootNode,
     unsigned int skyboxFBO)
 {
     if (rootNode->isSubsurface) {
-        renderSubsurface(rootNode, diffuseShader, thicknessShader, horizontalShader, verticalShader, lightSources, VP, cameraPosition, skyboxFBO);
+        renderSubsurface(rootNode, diffuseShader, thicknessShader, thicknessBiasShader, horizontalShader, verticalShader, lightSources, VP, cameraPosition, skyboxFBO);
     }
 
     for (SceneNode* child : rootNode->children) {
-        subsurfaceStage(child, diffuseShader, thicknessShader, horizontalShader, verticalShader, lightSources, VP, cameraPosition, skyboxFBO);
+        subsurfaceStage(child, diffuseShader, thicknessShader, thicknessBiasShader, horizontalShader, verticalShader, lightSources, VP, cameraPosition, skyboxFBO);
     }
 }
 
@@ -333,6 +384,56 @@ void main3DStage(SceneNode* rootNode, Gloom::Shader &shader, LightSource* lightS
     renderNode(rootNode, shader, lightSources);
 }
 
+void gbufferStage(SceneNode* rootNode, Gloom::Shader &shader, glm::mat4 &VP, glm::mat4 &V, unsigned int gbufferFBO) {
+    glBindFramebuffer(GL_FRAMEBUFFER, gbufferFBO);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    shader.activate();
+
+    GLint VPLocation = shader.getUniformFromName("VP");
+    glUniformMatrix4fv(VPLocation, 1, GL_FALSE, glm::value_ptr(VP));
+
+    GLint VLocation = shader.getUniformFromName("V");
+    glUniformMatrix4fv(VLocation, 1, GL_FALSE, glm::value_ptr(V));
+
+    renderGbuffer(rootNode, shader, V);
+}
+
+void ssaoStage(Gloom::Shader &shader, 
+               std::vector<glm::vec3> &kernel, 
+               unsigned int noiseTexture, 
+               unsigned int resultTexture, 
+               unsigned int positionTexture, 
+               unsigned int normalTexture,
+               glm::mat4 &projection) 
+{
+    shader.activate();
+
+    glBindImageTexture(0, positionTexture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
+    glBindImageTexture(1, normalTexture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
+    // glBindImageTexture(2, noiseTexture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGB32F);
+    // glBindTextureUnit(0, positionTexture);
+    // glBindTextureUnit(1, normalTexture);
+    glBindTextureUnit(2, noiseTexture);
+
+    glBindImageTexture(3, resultTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+
+    GLint projLoc = shader.getUniformFromName("projection");
+    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+    GLint kernelSizeLoc = shader.getUniformFromName("kernelSize");
+    glUniform1i(kernelSizeLoc, kernel.size());
+
+    for (unsigned int i = 0; i < kernel.size(); i++) {
+        GLint sampleLoc = shader.getUniformFromName("samples[" + std::to_string(i) + "]");
+        glUniform3fv(sampleLoc, 1, glm::value_ptr(kernel[i]));
+    }
+
+    glDispatchCompute((windowWidth + 15) / 16, (windowHeight + 15) / 16, 1);
+
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+}
+
 void main2DStage(Gloom::Shader &shader, SceneNode* rootNode, glm::mat4 &OrthoVP) {
     // Disable Depth test.
     glDisable(GL_DEPTH_TEST);
@@ -343,4 +444,6 @@ void main2DStage(Gloom::Shader &shader, SceneNode* rootNode, glm::mat4 &OrthoVP)
 
     // Render
     render2DNode(rootNode, shader);
+
+    glEnable(GL_DEPTH_TEST);
 } 

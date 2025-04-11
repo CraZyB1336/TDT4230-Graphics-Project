@@ -40,14 +40,12 @@ Gloom::Shader* subsurfaceHorizontalShader;
 Gloom::Shader* subsurfaceVerticalShader;
 Gloom::Shader* skyboxShader;
 Gloom::Shader* thicknessShader;
+Gloom::Shader* thicknessBiasShader;
+Gloom::Shader* gbufferShader;
+Gloom::Shader* ssaoShader;
 sf::Sound* sound;
 
 CommandLineOptions options;
-
-bool mouseLeftPressed   = false;
-bool mouseLeftReleased  = false;
-bool mouseRightPressed  = false;
-bool mouseRightReleased = false;
 
 // Modify if you want the music to start further on in the track. Measured in seconds.
 const float debug_startTime = 0;
@@ -72,6 +70,8 @@ glm::mat4 identityMat = {
 
 // Uniforms 3D
 glm::mat4 VP;
+glm::mat4 projection;
+glm::mat4 cameraTransform;
 glm::vec3 cameraPosition = {0.0, 0.0, 10.0};
 float cameraAngle = 35.0f;
 
@@ -82,6 +82,7 @@ glm::mat4 OrthoVP;
 // 3D
 SceneNode* rootNode;
 SceneNode* squareNode;
+SceneNode* light1;
 // SceneNode* skyBoxNode;
 
 // 3D Rendering Pipeline
@@ -89,11 +90,41 @@ unsigned int skyboxTextureID;
 unsigned int diffuseSubTextureID;
 unsigned int subsurfacedHorizontalTextureID;
 unsigned int subsurfacedFinalTextureID;
+unsigned int gbufferPostionTextureID;
+unsigned int gbufferNormalTextureID;
+unsigned int noiseTextureID;
+unsigned int ssaoResultTextureID;
+
+std::vector<glm::vec3> ssaoKernel;
+
 unsigned int skyboxFBO;
 unsigned int diffuseFBO;
+unsigned int gbufferFBO;
+
+float lightAnimationTime = 0.0f;
+float lightAnimationSpeed = 0.5f;
+bool lightIsMoving = true;
 
 // 2D
 SceneNode* root2DNode;
+SceneNode* text1;
+SceneNode* text2;
+SceneNode* text3;
+SceneNode* text4;
+bool hideUI = false;
+
+bool pauseHand = false;
+
+void initSSAOBuffers() {
+    std::vector<int> gbufferIDS = generateGBuffer(windowWidth, windowHeight);
+    gbufferFBO = gbufferIDS[0];
+    gbufferPostionTextureID = gbufferIDS[1];
+    gbufferNormalTextureID = gbufferIDS[2];
+    
+    ssaoKernel = generateSSAOKernel(64);
+    noiseTextureID = generateNoiseTexture();
+    ssaoResultTextureID = createSSAOTexture(windowWidth, windowHeight);
+}
 
 void initSubsurfaceBuffers(SceneNode* node, int windowWidth, int windowHeight) {
     std::vector<int> diffuseBufferIDS = generateFramebuffer(windowWidth, windowHeight, true);
@@ -105,9 +136,10 @@ void initSubsurfaceBuffers(SceneNode* node, int windowWidth, int windowHeight) {
         std::cout << "Error: Diffuse framebuffer is not complete!" << std::endl;
     }
 
-    std::vector<int> thicknessBufferIDS = generateFramebuffer(windowWidth, windowHeight, true);
+    std::vector<int> thicknessBufferIDS = generateThicknessBuffer(windowWidth, windowHeight);
     node->thicknessFBO = thicknessBufferIDS[0];
     node->thicknessTextureID = thicknessBufferIDS[1];
+    node->thicknessBiasAlbedoTextureID = getEmptyFrameBufferTextureID(windowWidth, windowHeight);
     
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -123,7 +155,7 @@ void initSkyboxBuffer() {
 }
 
 void initLights() {
-    SceneNode* light1 = createSceneNode();
+    light1 = createSceneNode();
 
     light1->lightSourceID       = 0;
     light1->nodeType            = DIR_LIGHT;
@@ -143,9 +175,9 @@ void init3DNodes() {
     rootNode = createSceneNode();
 
     // Generate Textures
-    // PNGImage brickTexture = loadPNGFile("../res/textures/Brick03_col.png");
-    // PNGImage brickTextureNRM = loadPNGFile("../res/textures/Brick03_nrm.png");
-    // PNGImage brickTextureRGH = loadPNGFile("../res/textures/Brick03_rgh.png");
+    // PNGImage brickTexture = loadPNGFile("../res/textures/skinColS.png");
+    // PNGImage brickTextureNRM = loadPNGFile("../res/textures/skinNormS.png");
+    // PNGImage brickTextureRGH = loadPNGFile("../res/textures/skinRghS.png");
 
     // int brickTextureID = getTextureID(brickTexture);
     // int brickTextureNRMID = getTextureID(brickTextureNRM);
@@ -162,11 +194,17 @@ void init3DNodes() {
     squareNode->indexArrayObjectID  = squareVAOIBO[1];
     squareNode->VAOIndexCount       = squareMesh.indices.size();
 
+    // squareNode->textureID           = brickTextureID;
+    // squareNode->normalTextureID     = brickTextureNRMID;
+    // squareNode->roughnessTextureID  = brickTextureRGHID;
+
     squareNode->isSubsurface                = true;
     squareNode->material->albedo            = {0.81, 0.72, 0.58};
     squareNode->material->specularFactor    = 0.001;
     squareNode->material->roughnessFactor   = 0.5;
     squareNode->material->subsurfaceTint    = {0.93, 0.4, 0.11};
+    squareNode->material->baseThickness     = 0.25;
+    squareNode->material->materialType      = 0;
 
     initSubsurfaceBuffers(squareNode, windowWidth, windowHeight);
 
@@ -184,6 +222,87 @@ void init3DNodes() {
 
 void init2DNodes() {
     root2DNode = createSceneNode();
+
+    PNGImage charmap = loadPNGFile("../res/textures/charmap.png");
+
+    std::string text1String = "Press \"Space\" to pause sun.";
+    std::string text2String = "Press \"S\" to toggle subsurface scattering.";
+    std::string text3String = "Press \"H\" to toggle hiding UI.";
+    std::string text4String = "Press \"X\" to pause hand.";
+    Mesh text1Mesh = generateTextGeometryBuffer(text1String, 39.0f / 29, 29 * text1String.length());
+    Mesh text2Mesh = generateTextGeometryBuffer(text2String, 39.0f / 29, 29 * text2String.length());
+    Mesh text3Mesh = generateTextGeometryBuffer(text3String, 39.0f / 29, 29 * text3String.length());
+    Mesh text4Mesh = generateTextGeometryBuffer(text4String, 39.0f / 29, 29 * text4String.length());
+    std::vector<unsigned int> text1VAOIBO = generateBuffer(text1Mesh);
+    std::vector<unsigned int> text2VAOIBO = generateBuffer(text2Mesh);
+    std::vector<unsigned int> text3VAOIBO = generateBuffer(text3Mesh);
+    std::vector<unsigned int> text4VAOIBO = generateBuffer(text4Mesh);
+
+    text1 = createSceneNode();
+    text2 = createSceneNode();
+    text3 = createSceneNode();
+    text4 = createSceneNode();
+
+    text1->vertexArrayObjectID = text1VAOIBO[0];
+    text1->indexArrayObjectID = text1VAOIBO[1];
+    text1->VAOIndexCount = text1Mesh.indices.size();
+    text1->nodeType = GEOMETRY_2D;
+    text1->textureID = getTextureID(charmap);
+    text1->position = {50, 180, 0};
+    text1->scale = {0.7, 0.7, 1};
+
+    text2->vertexArrayObjectID = text2VAOIBO[0];
+    text2->indexArrayObjectID = text2VAOIBO[1];
+    text2->VAOIndexCount = text2Mesh.indices.size();
+    text2->nodeType = GEOMETRY_2D;
+    text2->textureID = text1->textureID;
+    text2->position = {50, 150, 0};
+    text2->scale = {0.7, 0.7, 1};
+
+    text3->vertexArrayObjectID = text3VAOIBO[0];
+    text3->indexArrayObjectID = text3VAOIBO[1];
+    text3->VAOIndexCount = text3Mesh.indices.size();
+    text3->nodeType = GEOMETRY_2D;
+    text3->textureID = text1->textureID;
+    text3->position = {50, 120, 0};
+    text3->scale = {0.7, 0.7, 1};
+
+    text4->vertexArrayObjectID = text4VAOIBO[0];
+    text4->indexArrayObjectID = text4VAOIBO[1];
+    text4->VAOIndexCount = text4Mesh.indices.size();
+    text4->nodeType = GEOMETRY_2D;
+    text4->textureID = text1->textureID;
+    text4->position = {50, 210, 0};
+    text4->scale = {0.7, 0.7, 1};
+
+    root2DNode->children.push_back(text1);
+    root2DNode->children.push_back(text2);
+    root2DNode->children.push_back(text3);
+    root2DNode->children.push_back(text4);
+
+    OrthoVP = glm::ortho(0.0f, (float) windowWidth, 0.0f, (float) windowHeight, -1.0f, 1.0f);
+}
+
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
+    }
+
+    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
+        lightIsMoving = !lightIsMoving;
+    }
+
+    if (key == GLFW_KEY_S && action == GLFW_PRESS) {
+        squareNode->isSubsurface = !squareNode->isSubsurface;
+    }
+
+    if (key == GLFW_KEY_H && action == GLFW_PRESS) {
+        hideUI = !hideUI;
+    }
+
+    if (key == GLFW_KEY_X && action == GLFW_PRESS) {
+        pauseHand = !pauseHand;
+    }
 }
 
 void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
@@ -192,6 +311,7 @@ void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
 
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
     glfwSetCursorPosCallback(window, mouseCallback);
+    glfwSetKeyCallback(window, keyCallback);
 
     int windowWidth, windowHeight;
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
@@ -207,6 +327,10 @@ void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
     thicknessShader = new Gloom::Shader();
     thicknessShader->makeBasicShader("../res/shaders/simple.vert", "../res/shaders/thickness.frag");
 
+    thicknessBiasShader = new Gloom::Shader();
+    thicknessBiasShader->attach("../res/shaders/thicknessBias.comp");
+    thicknessBiasShader->link();
+
     subsurfaceHorizontalShader  = new Gloom::Shader();
     subsurfaceHorizontalShader->attach("../res/shaders/subsurfaceHorizontal.comp");
     subsurfaceHorizontalShader->link();
@@ -220,9 +344,17 @@ void initGame(GLFWwindow* window, CommandLineOptions gameOptions) {
 
     shader_2D = new Gloom::Shader();
     shader_2D->makeBasicShader("../res/shaders/simple_2D.vert", "../res/shaders/simple_2D.frag");
+
+    gbufferShader = new Gloom::Shader();
+    gbufferShader->makeBasicShader("../res/shaders/simple.vert", "../res/shaders/gbuffer.frag");
+
+    ssaoShader = new Gloom::Shader();
+    ssaoShader->attach("../res/shaders/ssao.comp");
+    ssaoShader->link();
     
     shader->activate();
 
+    initSSAOBuffers();
     initSkyboxBuffer();
     init3DNodes();
     init2DNodes();
@@ -235,28 +367,28 @@ void updateFrame(GLFWwindow* window) {
 
     double timeDelta = getTimeDeltaSeconds();
 
-    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1)) {
-        mouseLeftPressed = true;
-        mouseLeftReleased = false;
-    } else {
-        mouseLeftReleased = mouseLeftPressed;
-        mouseLeftPressed = false;
-    }
-    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2)) {
-        mouseRightPressed = true;
-        mouseRightReleased = false;
-    } else {
-        mouseRightReleased = mouseRightPressed;
-        mouseRightPressed = false;
-    }
+    lightAnimationTime += lightIsMoving ? timeDelta * lightAnimationSpeed : 0.0;
 
-    glm::mat4 projection = glm::perspective(glm::radians(80.0f), float(windowWidth) / float(windowHeight), 0.1f, 1000.f);
+    text1->nodeType = hideUI ? GEOMETRY : GEOMETRY_2D;
+    text2->nodeType = hideUI ? GEOMETRY : GEOMETRY_2D;
+    text3->nodeType = hideUI ? GEOMETRY : GEOMETRY_2D;
+    text4->nodeType = hideUI ? GEOMETRY : GEOMETRY_2D;
+
+    float xAngle = sin(lightAnimationTime) * 0.8f;
+    float yAngle = cos(lightAnimationTime) * 0.8f;
+
+    light1->rotation.x = xAngle;
+    light1->rotation.y = yAngle;
+
+    projection = glm::perspective(glm::radians(80.0f), float(windowWidth) / float(windowHeight), 0.1f, 1000.f);
     // Rotation Order: Y, X, Z
-    glm::mat4 cameraTransform = glm::translate(-cameraPosition);
+    cameraTransform = glm::lookAt(cameraPosition, cameraPosition * glm::vec3(0, 0, -1), glm::vec3(0, 1, 0));
 
     VP = projection * cameraTransform;
 
-    squareNode->rotation.y = squareNode->rotation.y >= 360.0 || squareNode->rotation.y <= -360.0 ? 0.0 : squareNode->rotation.y + timeDelta * 0.2;
+    if (!pauseHand) {
+        squareNode->rotation.y = squareNode->rotation.y >= 360.0 || squareNode->rotation.y <= -360.0 ? 0.0 : squareNode->rotation.y + timeDelta * 0.2;
+    }
 
     updateNodeTransformations(rootNode, identityMat);
     updateNodeTransformations(root2DNode, identityMat);
@@ -304,8 +436,10 @@ void renderFrame(GLFWwindow* window) {
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
     glViewport(0, 0, windowWidth, windowHeight);
 
+    // gbufferStage(rootNode, *gbufferShader, VP, cameraTransform, gbufferFBO);
+    // ssaoStage(*ssaoShader, ssaoKernel, noiseTextureID, ssaoResultTextureID, gbufferPostionTextureID, gbufferNormalTextureID, projection);
     skyboxStage(rootNode, *skyboxShader, lightSources, VP, skyboxFBO);
-    subsurfaceStage(rootNode, *diffusePassShader, *thicknessShader, *subsurfaceHorizontalShader, *subsurfaceVerticalShader, lightSources, VP, cameraPosition, skyboxFBO);
+    subsurfaceStage(rootNode, *diffusePassShader, *thicknessShader, *thicknessBiasShader, *subsurfaceHorizontalShader, *subsurfaceVerticalShader, lightSources, VP, cameraPosition, skyboxFBO);
     main3DStage(rootNode, *shader, lightSources, VP, cameraPosition, skyboxFBO);
-    // main2DStage(*shader_2D, root2DNode, OrthoVP);
+    main2DStage(*shader_2D, root2DNode, OrthoVP);
 }
