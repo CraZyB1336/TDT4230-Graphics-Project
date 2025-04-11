@@ -1,10 +1,10 @@
-# TDT4230 - Graphics and Visualization
+# TDT4230 - Graphics and Visualization Project
 
 This is the base code for the NTNU subject TDT4230 assignments. It may also be used for the final project, which we will showcase [here](https://www.idi.ntnu.no/grupper/vis/teaching/)
 
 ## What do i do?
 
-	git clone --recursive https://github.com/bartvbl/TDT4230-Assignment-1.git
+	git clone --recursive https://github.com/CraZyB1336/TDT4230-Graphics-Project.git
 
 Should you forget the `--recursive` bit, just run:
 
