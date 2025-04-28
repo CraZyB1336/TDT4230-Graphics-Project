@@ -218,6 +218,7 @@ void renderSubsurface(SceneNode* node,
         }
     }
 
+    glDisable(GL_BLEND);
     glBindFramebuffer(GL_FRAMEBUFFER, node->thicknessFBO);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -260,6 +261,7 @@ void renderSubsurface(SceneNode* node,
     glBindVertexArray(node->vertexArrayObjectID);
     glDrawElements(GL_TRIANGLES, node->VAOIndexCount, GL_UNSIGNED_INT, nullptr);
 
+    glEnable(GL_BLEND);
     thicknessBiasShader.activate();
 
     GLint tintLoc = thicknessBiasShader.getUniformFromName("ssTint");
